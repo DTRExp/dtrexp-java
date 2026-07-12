@@ -140,7 +140,7 @@ final class StaticChecks {
         int min = Parser.domainMin(s.des);
         for (int size : sizes) {
             if (s.stride) {
-                long re = resolve(s.strideEnd, size, false);
+                long re = resolve(s.strideEnd, size);
                 if (s.strideStart <= re && s.strideStart <= size) {
                     return true;
                 }
@@ -166,21 +166,21 @@ final class StaticChecks {
 
     private static boolean itemSatisfiable(Ast.Item it, int size, int min) {
         if (!it.range) {
-            long v = resolve(it.start, size, true);
+            long v = resolve(it.start, size);
             return v >= min && v <= size;
         }
         if (it.wrap) {
             return true; // a true wrap range is never statically empty
         }
-        long rs = it.start == Ast.STAR ? min : resolve(it.start, size, true);
-        long re = resolve(it.end, size, false);
+        long rs = it.start == Ast.STAR ? min : resolve(it.start, size);
+        long re = resolve(it.end, size);
         return rs <= re && rs <= size && re >= min;
     }
 
-    private static long resolve(long v, int size, boolean isStart) {
+    private static long resolve(long v, int size) {
         if (v == Ast.STAR) {
-            return isStart ? Long.MIN_VALUE + 1 : size;
-        }
+            return size; // STAR only ever reaches here as a range END; a STAR
+        }                // start is short-circuited to `min` before any resolve
         return v < 0 ? size + 1 + v : v;
     }
 
@@ -189,7 +189,7 @@ final class StaticChecks {
         boolean[] set = new boolean[size + 1];
         for (Ast.Item it : items) {
             if (!it.range) {
-                long v = resolve(it.start, size, true);
+                long v = resolve(it.start, size);
                 if (v >= min && v <= size) {
                     set[(int) v] = true;
                 }
@@ -200,8 +200,8 @@ final class StaticChecks {
                 fill(set, min, it.end, min, size);
                 continue;
             }
-            long rs = it.start == Ast.STAR ? min : resolve(it.start, size, true);
-            long re = resolve(it.end, size, false);
+            long rs = it.start == Ast.STAR ? min : resolve(it.start, size);
+            long re = resolve(it.end, size);
             fill(set, rs, re, min, size);
         }
         return set;
@@ -241,23 +241,20 @@ final class StaticChecks {
      */
     private static Set<Integer> staticSet(Ast.Selector s, int size) {
         Set<Integer> result = new LinkedHashSet<>();
-        if (s == null || s.star) {
+        if (s.star) {
             for (int v = 1; v <= size; v++) {
                 result.add(v);
             }
             return result;
         }
         if (s.stride) {
-            long re = resolve(s.strideEnd, size, false);
+            long re = resolve(s.strideEnd, size);
             for (long v = s.strideStart; v <= Math.min(re, size); v++) {
                 if ((v - s.strideStart) % s.interval < s.duration) {
                     result.add((int) v);
                 }
             }
             return result;
-        }
-        if (s.ordinal) {
-            return result; // not applicable (E only; never M/Q)
         }
         boolean[] set = mark(s.items, size, 1);
         for (int v = 1; v <= size; v++) {

@@ -125,9 +125,6 @@ final class Parser {
             if (peek() == ',') {
                 throw err(i, "bare '*' in a list — the list is already the whole domain");
             }
-            if (peek() == ':') {
-                throw err(i, "unexpected ':'"); // unreachable; kept for safety
-            }
             return Ast.Selector.all(des, pos);
         }
         Ast.Item first = parseIntItem(des);
@@ -391,7 +388,8 @@ final class Parser {
             unit = take == 2 ? 3_600_000L : take == 4 ? 60_000L : 1_000L;
         }
         if (hh == 24) {
-            if (endPosition && take == 4 && mm == 0 && !hasMillis) {
+            // take == 4 already implies no millis (millis needs take == 6)
+            if (endPosition && take == 4 && mm == 0) {
                 return new long[] {DAY_MS, unit};
             }
             throw err(pos, "hour 24 is the exact 4-digit token '2400', in range-end position only");

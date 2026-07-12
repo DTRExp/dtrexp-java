@@ -2,3 +2,4 @@ _notes/
 .DS_Store
 out/
 *.class
+_tools/
