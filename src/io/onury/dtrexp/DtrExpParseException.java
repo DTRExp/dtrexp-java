@@ -3,7 +3,7 @@ package io.onury.dtrexp;
 import java.io.Serial;
 
 /**
- * Thrown when a DTRExp expression fails to parse or fails static validation.
+ * Thrown when a DTR expression fails to parse or fails static validation.
  * Carries the zero-based character position in the source string at which the
  * problem was detected.
  */

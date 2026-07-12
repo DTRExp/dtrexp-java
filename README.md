@@ -24,19 +24,19 @@ import io.onury.dtrexp.DtrExp;
 import java.time.Instant;
 import java.time.ZoneId;
 
-DtrExp businessHours = DtrExp.parse("T0900:1800 E1:5");   // Mon–Fri, 09:00–18:00
+DtrExp dtr = DtrExp.parse("T0900:1800 E1:5");   // Mon–Fri, 09:00–18:00
 // throws a positioned DtrExpParseException on a syntax or static-validity error
 
-boolean open = businessHours.covers(Instant.now(), "Europe/Berlin");
+boolean open = dtr.covers(Instant.now(), "Europe/Berlin");
 // —> true on a weekday, 09:00–18:00 Berlin local time
 ```
 
 The zone is an evaluation parameter, never part of the expression. Three `covers` overloads take it three ways:
 
 ```java
-businessHours.covers(instant);                          // UTC — the default zone
-businessHours.covers(instant, ZoneId.of("Asia/Tokyo")); // a preloaded ZoneId
-businessHours.covers(instant, "Asia/Tokyo");            // an IANA identifier
+dtr.covers(instant);                          // UTC — the default zone
+dtr.covers(instant, ZoneId.of("Asia/Tokyo")); // a preloaded ZoneId
+dtr.covers(instant, "Asia/Tokyo");            // an IANA identifier
 ```
 
 Note that you parse **once** (at write/config time) and evaluate **many**. A `DtrExp` is immutable after `parse` and safe to share across threads; `covers` is a single calendar-field extraction followed by integer comparisons, with no occurrence iteration. `toString()` returns the source expression verbatim.
@@ -57,7 +57,7 @@ res.warnings();                  // [DtrExpWarning{position=…, message="unsati
 
 - `parse(s)` returns the expression or throws a `DtrExpParseException` (`position()` `int`, plus the message).
 - `validate(s)` never throws; typo-shaped input comes back as data. Returns a `ValidationResult` record with `valid()` `boolean`, `errors()` (parsing stops at the first syntax error, so at most one `DtrExpParseException`) and `warnings()`.
-- Warnings are the spec's §9.1 unsatisfiability lint — expressions that parse but can never match. `DtrExp.warnings()` and `validate(s).warnings()` carry the same content. `DtrExpWarning` is a record of `(int position, String message)`.
+- Warnings are the spec's [§9.1](https://github.com/DTRExp/dtrexp/blob/main/spec.md#91-the-existence-rule) unsatisfiability lint — expressions that parse but can never match. `DtrExp.warnings()` and `validate(s).warnings()` carry the same content. `DtrExpWarning` is a record of `(int position, String message)`.
 
 ## Conformance & quality
 
@@ -69,7 +69,7 @@ res.warnings();                  // [DtrExpWarning{position=…, message="unsati
 
 - [**dtrexp** (spec)][spec] — the DTRExp specification (grammar, semantics, conformance vectors) this package implements.
 - [**dtrexp-js**][js] — the reference implementation; adds `intersect`, `next`, `describe`, `toRRule` and canonicalization.
-- [**dtrexp-go**][go] — the Go port; same core interface.
+- [**dtrexp-py**][py] · [**dtrexp-go**][go] · [**dtrexp-swift**][swift] · [**dtrexp-rs**][rs] — the other ports; same core interface.
 
 ## License
 
@@ -77,6 +77,9 @@ res.warnings();                  // [DtrExpWarning{position=…, message="unsati
 
 [spec]: https://github.com/DTRExp/dtrexp
 [js]: https://github.com/DTRExp/dtrexp-js
+[py]: https://github.com/DTRExp/dtrexp-py
 [go]: https://github.com/DTRExp/dtrexp-go
+[swift]: https://github.com/DTRExp/dtrexp-swift
+[rs]: https://github.com/DTRExp/dtrexp-rs
 [vectors]: https://github.com/DTRExp/dtrexp/blob/main/vectors.json
 [vectors-md]: https://github.com/DTRExp/dtrexp/blob/main/VECTORS.md
