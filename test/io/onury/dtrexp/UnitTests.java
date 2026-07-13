@@ -31,6 +31,7 @@ public final class UnitTests {
         staticWarnings();
         staticQuiet();
         staticCoverageCorners();
+        mutationKills();
         whiteBox();
 
         System.out.printf("UNIT: %d passed, %d failed%n", passed, failed);
@@ -335,6 +336,75 @@ public final class UnitTests {
         quiet("E1#2 M1");
     }
 
+    // -------------------------------------------- mutation-kill tests
+    // Each pins a boundary/relational/logical decision that a mutant would flip.
+    // Grouped by the source they defend.
+
+    private static void mutationKills() {
+        // Parser -----------------------------------------------------------
+        // designator-without-value must fire on a trailing SPACE (indexOf >= 0)
+        rejectsMsg("Y M1", "without value");
+        // wrap flag needs a strict start > end (not >=) and both endpoints
+        covers("H5:5", "2020-01-01T05:30:00Z", "UTC", true);   // 5:5 is just hour 5
+        covers("H5:5", "2020-01-01T10:00:00Z", "UTC", false);
+        covers("H5:0", "2020-01-01T06:00:00Z", "UTC", true);   // 5:0 wraps midnight
+        covers("H5:0", "2020-01-01T03:00:00Z", "UTC", false);
+        covers("H5:0", "2020-01-01T00:30:00Z", "UTC", true);
+        // a 7-digit year is diagnosed as a year-domain error (digit guard is > 7)
+        rejectsMsg("Y1234567", "year out of domain");
+        accepts("Y1");                     // year 1 is the inclusive minimum
+        accepts("E-7");                    // -7 == domain size, still in range
+        accepts("M1/12");                  // interval == domain size is allowed
+        // single time values carry the precision-sized window (unit table)
+        covers("T09", "2020-01-01T09:30:00Z", "UTC", true);    // 2-digit => 1h window
+        covers("T09", "2020-01-01T10:30:00Z", "UTC", false);
+        covers("T0900", "2020-01-01T09:00:30Z", "UTC", true);  // 4-digit => 1m window
+        covers("T0900", "2020-01-01T09:02:00Z", "UTC", false);
+        accepts("T23");                    // hour 23 is valid (guard is > 23)
+        accepts("T0959");                  // minute 59 valid
+        accepts("T095959");                // second 59 valid
+        accepts("00010101");               // date-literal year 1 valid (guard is < 1)
+        accepts("20200101T0959");          // date-literal minute 59 valid
+        accepts("20200101T095959");        // date-literal second 59 valid
+        rejects("20200101/100D/1M");       // month duration with a day period is rejected
+        rejectsMsg("20200101/2", "<end>"); // missing cadence unit reports <end>
+        rejects("D1:40/3 M1");             // an explicit stride end is domain-checked
+        accepts("D1/31 M1");               // interval 31 == month scope, allowed
+        accepts("20200101/1234567D");      // 7-digit cadence period is in range
+
+        // Evaluator --------------------------------------------------------
+        // H-period window is half-open: [0, durMs) within each period
+        covers("20200101/2H/1H", "2020-01-01T00:30:00Z", "UTC", true);
+        covers("20200101/2H/1H", "2020-01-01T01:00:00Z", "UTC", false); // exact edge, excluded
+        covers("20200101/2H/1H", "2020-01-01T01:30:00Z", "UTC", false);
+        covers("20200101/2H/1H", "2020-01-01T02:00:00Z", "UTC", true);
+
+        // StaticChecks -----------------------------------------------------
+        // month-length table: the 30-day months warn on D31; a 31-day month does not
+        warns("M4 D31");
+        warns("M6 D31");
+        warns("M9 D31");
+        warns("M11 D31");
+        quiet("M1 D31");
+        // stride satisfiability boundaries (start <= re, start <= size)
+        quiet("M5:5/2");                   // start == resolved end
+        quiet("M12/2");                    // start == domain size
+        quiet("E!1:6");                    // sole free value is the max (loop <= size)
+        quiet("H0:5");                     // resolve of a 0 endpoint (v < 0, not <= 0)
+        warns("M*:5 Q3");                  // star-started range vs Q, mark()'s STAR arm
+        warnCount("M!1:12 Q1", 1);         // empty M must NOT also raise a disjoint warning
+        quiet("M12 Q*");                   // star staticSet must include the max quarter
+        quiet("M3/3 Q4");                  // stride staticSet must include its last hit (12)
+        warns("M3/6 Q2");                  // stride staticSet must NOT include remainder==duration
+        // concrete-year enumeration boundaries (D-in-year scope, no W)
+        warns("Y2001:2003/2 D366");        // open/narrow stride: years enumerated, all common
+        warns("Y1001:2001/1000 D366");     // stride span == 1000 still enumerates
+        quiet("Y2001:2004/3 D366");        // stride must include its last year (2004, leap)
+        warns("Y2003:2007/4 D366");        // stride selects remainder < duration only
+        warns("Y2001:2003 D366");          // range enumerated, all common years => D366 warns
+        quiet("Y2001:2004 D366");          // range must include its last year (2004, leap)
+    }
+
     // --------------------------------------------------------- white-box
 
     private static void whiteBox() {
@@ -364,6 +434,21 @@ public final class UnitTests {
         ValidationResult v = DtrExp.validate(expr);
         check(!v.valid() && v.errors().get(0).position() == pos,
                 "\"" + expr + "\" must be rejected at position " + pos);
+    }
+
+    private static void rejectsMsg(String expr, String needle) {
+        ValidationResult v = DtrExp.validate(expr);
+        check(!v.valid() && v.errors().get(0).getMessage().contains(needle),
+                "\"" + expr + "\" must be rejected with a message containing \"" + needle + "\""
+                        + (v.valid() ? " (accepted)" : ": " + v.errors().get(0).getMessage()));
+    }
+
+    private static void warnCount(String expr, int n) {
+        ValidationResult v = DtrExp.validate(expr);
+        check(v.valid() && v.warnings().size() == n,
+                "\"" + expr + "\" must produce exactly " + n + " warning(s)"
+                        + (v.valid() ? " (got " + v.warnings().size() + ": " + v.warnings() + ")"
+                                : " (rejected)"));
     }
 
     private static void accepts(String expr) {
