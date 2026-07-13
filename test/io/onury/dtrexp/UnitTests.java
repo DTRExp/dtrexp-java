@@ -44,6 +44,7 @@ public final class UnitTests {
         staticQuiet();
         staticCoverageCorners();
         mutationKills();
+        pitKills();
         whiteBox();
 
         System.out.printf("UNIT: %d passed, %d failed%n", passed, failed);
@@ -413,6 +414,43 @@ public final class UnitTests {
         warns("Y2003:2007/4 D366");        // stride selects remainder < duration only
         warns("Y2001:2003 D366");          // range enumerated, all common years => D366 warns
         quiet("Y2001:2004 D366");          // range must include its last year (2004, leap)
+    }
+
+    // ------------------------------------------------- PIT survivor kills
+
+    private static void pitKills() {
+        // covers(Instant) — the UTC overload evaluates; it is not constant-true
+        check(!DtrExp.parse("M7").covers(Instant.parse("2020-03-15T12:00:00Z")),
+                "covers(Instant) is false outside the selection");
+        // the exception accessor carries the real offset
+        rejectsAt("M13", 1);
+
+        // Parser: empty-branch diagnostics name the right construct, at the
+        // right position, with trailing spaces consumed first
+        rejectsMsg("|M1", "empty expression");
+        rejectsMsg("M1|", "empty union branch");
+        rejectsAt("M1| ", 4);
+        rejectsAt("M3,*", 3);              // the bare-'*' error points at the '*'
+        accepts("D-31");                   // -31 == month-scope domain size, still in range
+        rejects("D40/2");                  // a stride START is domain-checked like any value
+
+        // StaticChecks
+        quiet("Y1999:2009/5 W53");         // on-years {1999,2004,2009}: 2004 and 2009 have 53 weeks
+        warns("Y!2020 D-1:5");             // excluded Y leaves {365,366}; D-1:5 is empty in both
+        quiet("Q1 D91");                   // leap-year Q1 has 91 days
+        warns("Q1 D92");                   // ...but never 92 — Q1 sizes are narrowed, not defaulted
+        warns("M!7:6");                    // wrap-range exclusion covering the whole domain
+        warns("H!0:23");                   // excluding every hour
+        warns("m!0:59");                   // excluding every minute
+        warns("W-1:5");                    // statically-empty W range without Y context
+        // 1001 enumerated years (the inclusive cap): all odd, so all common — D366 warns;
+        // one more year crosses the cap, enumeration stops, the leap fallback stays quiet
+        StringBuilder years = new StringBuilder("Y");
+        for (int y = 2001; y <= 4001; y += 2) {
+            years.append(y).append(y < 4001 ? "," : "");
+        }
+        warns(years + " D366");
+        quiet(years + ",4003 D366");
     }
 
     // --------------------------------------------------------- white-box
