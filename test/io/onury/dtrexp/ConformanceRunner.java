@@ -19,6 +19,13 @@ public final class ConformanceRunner {
     private int failed;
 
     public static void main(String[] args) throws Exception {
+        if (run(args) > 0) {
+            System.exit(1);
+        }
+    }
+
+    /** Runs every vector group; returns the failure count (0 = pass). */
+    public static int run(String[] args) throws Exception {
         Path file = Path.of(args.length > 0 ? args[0] : "test/resources/vectors.json");
         Map<?, ?> root = (Map<?, ?>) Json.parse(Files.readString(file));
         ConformanceRunner r = new ConformanceRunner();
@@ -34,9 +41,7 @@ public final class ConformanceRunner {
         System.out.printf("warnings: %d/%d%n", warnings[0], warnings[0] + warnings[1]);
         System.out.printf("quiet:    %d/%d%n", quiet[0], quiet[0] + quiet[1]);
         System.out.printf("TOTAL:    %d passed, %d failed%n", r.passed, r.failed);
-        if (r.failed > 0) {
-            System.exit(1);
-        }
+        return r.failed;
     }
 
     private int[] runCoverage(List<?> groups) {

@@ -19,6 +19,18 @@ public final class UnitTests {
     private static int failed;
 
     public static void main(String[] args) {
+        if (run() > 0) {
+            System.exit(1);
+        }
+    }
+
+    /**
+     * Runs the whole suite; returns the failure count (0 = pass). Resets the
+     * counters first so a single JVM can run it repeatedly (PIT does).
+     */
+    public static int run() {
+        passed = 0;
+        failed = 0;
         publicSurface();
         boundsEvaluation();
         cadenceEvaluation();
@@ -35,9 +47,7 @@ public final class UnitTests {
         whiteBox();
 
         System.out.printf("UNIT: %d passed, %d failed%n", passed, failed);
-        if (failed > 0) {
-            System.exit(1);
-        }
+        return failed;
     }
 
     // ---------------------------------------------------------- public surface
