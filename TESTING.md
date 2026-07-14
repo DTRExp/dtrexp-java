@@ -1,8 +1,8 @@
 # Testing
 
-The package is tested at three levels: the conformance vectors (`test/resources/vectors.json`, the behavioral contract), unit tests for everything the vectors don't reach (`UnitTests.java` — public surface, every parse-error branch, evaluation corners, static-analysis boundaries), and mutation testing with [PIT](https://pitest.org).
+The package is tested at three levels: the conformance vectors (`test/resources/vectors.json`, the behavioral contract), unit tests for everything the vectors don't reach (`UnitTests.java`: public surface, every parse-error branch, evaluation corners, static-analysis boundaries), and mutation testing with [PIT](https://pitest.org).
 
-The library itself is zero-dependency and builds with plain `javac`. Coverage (JaCoCo) and mutation (PIT + JUnit) tooling is optional and lives in the gitignored `_tools/` directory; the test suite itself uses no framework — two `main()` programs that exit nonzero on failure.
+The library itself is zero-dependency and builds with plain `javac`. Coverage (JaCoCo) and mutation (PIT + JUnit) tooling is optional and lives in the gitignored `_tools/` directory; the test suite itself uses no framework: two `main()` programs that exit nonzero on failure.
 
 ## Commands
 
@@ -20,11 +20,11 @@ Two environment notes, learned the hard way: PIT's CSV listener genuinely requir
 
 ## Coverage: 100% Lines and Branches
 
-`./run.sh cover` enforces **100% line and branch coverage** of the shipped classes (the test harness itself is excluded from measurement), driven by behavioral assertions — every case asserts a spec-level outcome, never that a line merely executed.
+`./run.sh cover` enforces **100% line and branch coverage** of the shipped classes (the test harness itself is excluded from measurement), driven by behavioral assertions; every case asserts a spec-level outcome, never that a line merely executed.
 
 ## Mutation Testing
 
-Full run: **638 mutants — 627 caught, 11 equivalent (justified below), 0 unjustified survivors.**
+Full run: **638 mutants: 627 caught, 11 equivalent (justified below), 0 unjustified survivors.**
 
 Seven of the caught are non-termination kills: mutants that turn bounded loops into infinite or allocation-unbounded ones (the parser's space-skipper, list-building loops). A suite that can never complete has detected the mutant; PIT counts these toward its kill score, as Stryker does with `TimedOut`.
 
@@ -46,4 +46,4 @@ PIT has no inline suppression mechanism, so equivalents are documented here.
 | ConditionalsBoundary `Parser.java:611` | `v < 0` → `<=` | A day value of zero never reaches `checkDayValue`: `parseIntValue` rejects `0` on every 1-based domain first. |
 | NegateConditionals `StaticChecks.java:245` | star branch of `staticSet` yields an empty set | An empty set from a star selector is observably identical to the full domain in every consumer: the M∩Q disjointness check early-returns quiet on empty (and a star can never be disjoint), and `daySizes` maps empty month/quarter sets to defaults equal to the full-domain enumerations (`{28,29,30,31}` / `{90,91,92}`). |
 | EmptyObjectReturns `StaticChecks.java:248` | same site, same empty set | Same argument. |
-| ConditionalsBoundary `StaticChecks.java:302` | year-range span `> 1000` → `>=` | Differs only for a range of exactly 1001 consecutive years, which always contain leap, common, 52-week and 53-week years — so the enumerated size sets equal the open-years fallbacks and warnings are identical (warnings are `concreteYears`' only consumer; month/quarter day sizes ignore years entirely). |
+| ConditionalsBoundary `StaticChecks.java:302` | year-range span `> 1000` → `>=` | Differs only for a range of exactly 1001 consecutive years, which always contain leap, common, 52-week and 53-week years, so the enumerated size sets equal the open-years fallbacks and warnings are identical (warnings are `concreteYears`' only consumer; month/quarter day sizes ignore years entirely). |

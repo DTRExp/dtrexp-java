@@ -9,7 +9,7 @@ E7#-1 M4                 last Sunday of April, every year
 M!7                      every month except July
 ```
 
-Scope: **parsing, validation and coverage evaluation** — the spec's core interface. Rendering, description and RRULE export are out of scope; the [reference implementation][js] has them.
+Scope: **parsing, validation and coverage evaluation** (the spec's core interface). Rendering, description and RRULE export are out of scope; the [reference implementation][js] has them.
 
 ## Install
 
@@ -57,11 +57,11 @@ res.warnings();                  // [DtrExpWarning{position=…, message="unsati
 
 - `parse(s)` returns the expression or throws a `DtrExpParseException` (`position()` `int`, plus the message).
 - `validate(s)` never throws; typo-shaped input comes back as data. Returns a `ValidationResult` record with `valid()` `boolean`, `errors()` (parsing stops at the first syntax error, so at most one `DtrExpParseException`) and `warnings()`.
-- Warnings are the spec's [§9.1](https://github.com/DTRExp/dtrexp/blob/main/spec.md#91-the-existence-rule) unsatisfiability lint — expressions that parse but can never match. `DtrExp.warnings()` and `validate(s).warnings()` carry the same content. `DtrExpWarning` is a record of `(int position, String message)`.
+- Warnings are the spec's [§9.1](https://github.com/DTRExp/dtrexp/blob/main/spec.md#91-the-existence-rule) unsatisfiability lint: expressions that parse but can never match. `DtrExp.warnings()` and `validate(s).warnings()` carry the same content. `DtrExpWarning` is a record of `(int position, String message)`.
 
 ## Conformance & quality
 
-- The test suite is driven by the shared [`vectors.json`][vectors] from the spec repo (draft 2.8) — every coverage, rejection, warning and quiet vector, including the calendar traps (Feb 29 across 2000/2024/**2100**, `W53` existence, DST gap/overlap in `Europe/Berlin`). The vectors are vendored at `test/resources/vectors.json`; see [VECTORS.md][vectors-md] for how the suite works.
+- The test suite is driven by the shared [`vectors.json`][vectors] from the spec repo (draft 2.8): every coverage, rejection, warning and quiet vector, including the calendar traps (Feb 29 across 2000/2024/**2100**, `W53` existence, DST gap/overlap in `Europe/Berlin`). The vectors are vendored at `test/resources/vectors.json`; see [VECTORS.md][vectors-md] for how the suite works.
 - The build compiles under `javac -Xlint:all -Werror`, so a warning fails it.
 - Zero dependencies.
 
