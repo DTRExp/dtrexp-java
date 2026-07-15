@@ -54,26 +54,26 @@ public final class UnitTests {
     // ---------------------------------------------------------- public surface
 
     private static void publicSurface() {
-        DtrExp e = DtrExp.parse("T0900:1800 E1:5");
+        DTRExp e = DTRExp.parse("T0900:1800 E1:5");
         check(e.source().equals("T0900:1800 E1:5"), "source() returns verbatim input");
         check(e.toString().equals("T0900:1800 E1:5"), "toString() returns the source");
         check(e.warnings().isEmpty(), "a clean expression exposes no warnings");
 
-        DtrExp warned = DtrExp.parse("M2 D30");
+        DTRExp warned = DTRExp.parse("M2 D30");
         check(!warned.warnings().isEmpty(), "warnings() exposes the static finding");
-        DtrExpWarning w = warned.warnings().get(0);
+        DTRExpWarning w = warned.warnings().get(0);
         check(w.toString().equals(w.message() + " (at " + w.position() + ")"),
-                "DtrExpWarning.toString() renders message + position");
+                "DTRExpWarning.toString() renders message + position");
 
         // covers(Instant) — the UTC default overload
-        DtrExp allDay = DtrExp.parse("T0000:2400");
+        DTRExp allDay = DTRExp.parse("T0000:2400");
         Instant noon = Instant.parse("2020-06-15T12:00:00Z");
         check(allDay.covers(noon), "covers(Instant) defaults to UTC and matches whole-day range");
         check(allDay.covers(noon, ZoneOffset.UTC) == allDay.covers(noon),
                 "covers(Instant) agrees with covers(Instant, UTC)");
         // covers(Instant, ZoneId) overload agrees with the String overload;
         // June => Berlin is UTC+2, so 07:30Z is 09:30 local (hour 9).
-        DtrExp morning = DtrExp.parse("H9");
+        DTRExp morning = DTRExp.parse("H9");
         Instant t = Instant.parse("2020-06-15T07:30:00Z");
         check(morning.covers(t, ZoneId.of("Europe/Berlin")) == morning.covers(t, "Europe/Berlin"),
                 "covers(Instant, ZoneId) agrees with covers(Instant, String)");
@@ -83,9 +83,9 @@ public final class UnitTests {
                 "H9 does not cover 07:30Z in UTC (hour 7)");
 
         // validate() success path exposes warnings, failure path exposes the error
-        ValidationResult ok = DtrExp.validate("M1");
+        ValidationResult ok = DTRExp.validate("M1");
         check(ok.valid() && ok.errors().isEmpty(), "validate() of a good expr is valid with no errors");
-        ValidationResult bad = DtrExp.validate("Zx");
+        ValidationResult bad = DTRExp.validate("Zx");
         check(!bad.valid() && bad.errors().size() == 1, "validate() of a bad expr carries exactly one error");
         check(bad.errors().get(0).position() >= 0, "the parse error exposes a character position");
     }
@@ -420,7 +420,7 @@ public final class UnitTests {
 
     private static void pitKills() {
         // covers(Instant) — the UTC overload evaluates; it is not constant-true
-        check(!DtrExp.parse("M7").covers(Instant.parse("2020-03-15T12:00:00Z")),
+        check(!DTRExp.parse("M7").covers(Instant.parse("2020-03-15T12:00:00Z")),
                 "covers(Instant) is false outside the selection");
         // the exception accessor carries the real offset
         rejectsAt("M13", 1);
@@ -467,7 +467,7 @@ public final class UnitTests {
 
     private static void covers(String expr, String instant, String tz, boolean expected) {
         try {
-            boolean actual = DtrExp.parse(expr).covers(Instant.parse(instant), tz);
+            boolean actual = DTRExp.parse(expr).covers(Instant.parse(instant), tz);
             check(actual == expected, "\"" + expr + "\" @ " + instant + " [" + tz + "] expected " + expected);
         } catch (RuntimeException e) {
             check(false, "\"" + expr + "\" @ " + instant + " threw " + e);
@@ -475,24 +475,24 @@ public final class UnitTests {
     }
 
     private static void rejects(String expr) {
-        check(!DtrExp.validate(expr).valid(), "\"" + expr + "\" must be rejected");
+        check(!DTRExp.validate(expr).valid(), "\"" + expr + "\" must be rejected");
     }
 
     private static void rejectsAt(String expr, int pos) {
-        ValidationResult v = DtrExp.validate(expr);
+        ValidationResult v = DTRExp.validate(expr);
         check(!v.valid() && v.errors().get(0).position() == pos,
                 "\"" + expr + "\" must be rejected at position " + pos);
     }
 
     private static void rejectsMsg(String expr, String needle) {
-        ValidationResult v = DtrExp.validate(expr);
+        ValidationResult v = DTRExp.validate(expr);
         check(!v.valid() && v.errors().get(0).getMessage().contains(needle),
                 "\"" + expr + "\" must be rejected with a message containing \"" + needle + "\""
                         + (v.valid() ? " (accepted)" : ": " + v.errors().get(0).getMessage()));
     }
 
     private static void warnCount(String expr, int n) {
-        ValidationResult v = DtrExp.validate(expr);
+        ValidationResult v = DTRExp.validate(expr);
         check(v.valid() && v.warnings().size() == n,
                 "\"" + expr + "\" must produce exactly " + n + " warning(s)"
                         + (v.valid() ? " (got " + v.warnings().size() + ": " + v.warnings() + ")"
@@ -500,18 +500,18 @@ public final class UnitTests {
     }
 
     private static void accepts(String expr) {
-        ValidationResult v = DtrExp.validate(expr);
+        ValidationResult v = DTRExp.validate(expr);
         check(v.valid(), "\"" + expr + "\" must be accepted"
                 + (v.valid() ? "" : ": " + v.errors().get(0).getMessage()));
     }
 
     private static void warns(String expr) {
-        ValidationResult v = DtrExp.validate(expr);
+        ValidationResult v = DTRExp.validate(expr);
         check(v.valid() && !v.warnings().isEmpty(), "\"" + expr + "\" must warn");
     }
 
     private static void quiet(String expr) {
-        ValidationResult v = DtrExp.validate(expr);
+        ValidationResult v = DTRExp.validate(expr);
         check(v.valid() && v.warnings().isEmpty(),
                 "\"" + expr + "\" must be quiet" + (v.valid() ? " (warned: " + v.warnings() + ")"
                         : " (rejected: " + v.errors().get(0).getMessage() + ")"));

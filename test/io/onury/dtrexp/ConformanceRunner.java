@@ -53,10 +53,10 @@ public final class ConformanceRunner {
             String expression = (String) group.get("expression");
             String tz = (String) group.get("tz");
             Map<?, ?> cases = (Map<?, ?>) group.get("cases");
-            DtrExp exp;
+            DTRExp exp;
             try {
-                exp = DtrExp.parse(expression);
-            } catch (DtrExpParseException e) {
+                exp = DTRExp.parse(expression);
+            } catch (DTRExpParseException e) {
                 bad += cases.size();
                 fail("coverage/" + id, expression + " failed to parse: " + e.getMessage());
                 continue;
@@ -92,7 +92,7 @@ public final class ConformanceRunner {
         for (Object e : entries) {
             Map<?, ?> entry = (Map<?, ?>) e;
             String expression = (String) entry.get("expression");
-            ValidationResult v = DtrExp.validate(expression);
+            ValidationResult v = DTRExp.validate(expression);
             if (!v.valid()) {
                 ok++;
             } else {
@@ -112,7 +112,7 @@ public final class ConformanceRunner {
         for (Object e : entries) {
             Map<?, ?> entry = (Map<?, ?>) e;
             String expression = (String) entry.get("expression");
-            ValidationResult v = DtrExp.validate(expression);
+            ValidationResult v = DTRExp.validate(expression);
             if (!v.valid()) {
                 bad++;
                 fail("warnings", "\"" + expression + "\" rejected — must be accepted with a warning: "
@@ -135,7 +135,7 @@ public final class ConformanceRunner {
         for (Object e : entries) {
             Map<?, ?> entry = (Map<?, ?>) e;
             String expression = (String) entry.get("expression");
-            ValidationResult v = DtrExp.validate(expression);
+            ValidationResult v = DTRExp.validate(expression);
             if (!v.valid()) {
                 bad++;
                 fail("quiet", "\"" + expression + "\" rejected — must parse cleanly: " + v.errors().get(0).getMessage());

@@ -16,39 +16,39 @@ import java.util.Objects;
  * evaluation parameter (default UTC).</p>
  *
  * <pre>{@code
- * DtrExp businessHours = DtrExp.parse("T0900:1800 E1:5");
+ * DTRExp businessHours = DTRExp.parse("T0900:1800 E1:5");
  * boolean open = businessHours.covers(Instant.now(), ZoneId.of("Europe/Berlin"));
  * }</pre>
  */
-public final class DtrExp {
+public final class DTRExp {
 
     private final String source;
     private final List<Ast.Expr> exprs;
-    private final List<DtrExpWarning> warnings;
+    private final List<DTRExpWarning> warnings;
 
-    private DtrExp(String source, List<Ast.Expr> exprs, List<DtrExpWarning> warnings) {
+    private DTRExp(String source, List<Ast.Expr> exprs, List<DTRExpWarning> warnings) {
         this.source = source;
         this.exprs = exprs;
         this.warnings = List.copyOf(warnings);
     }
 
     /**
-     * Parses an expression, throwing a positioned {@link DtrExpParseException}
+     * Parses an expression, throwing a positioned {@link DTRExpParseException}
      * on any syntax or static-validity error. Non-fatal findings are exposed
      * via {@link #warnings()}.
      */
-    public static DtrExp parse(String expression) {
+    public static DTRExp parse(String expression) {
         Objects.requireNonNull(expression, "expression");
         Parser.Parsed parsed = Parser.parse(expression);
-        return new DtrExp(expression, parsed.exprs(), parsed.warnings());
+        return new DTRExp(expression, parsed.exprs(), parsed.warnings());
     }
 
     /** Parses without throwing: returns the errors (at most one) or the warnings. */
     public static ValidationResult validate(String expression) {
         try {
-            DtrExp exp = parse(expression);
+            DTRExp exp = parse(expression);
             return new ValidationResult(true, List.of(), exp.warnings);
-        } catch (DtrExpParseException e) {
+        } catch (DTRExpParseException e) {
             return new ValidationResult(false, List.of(e), List.of());
         }
     }
@@ -59,7 +59,7 @@ public final class DtrExp {
     }
 
     /** Static-analysis warnings (spec section 9.1), possibly empty. */
-    public List<DtrExpWarning> warnings() {
+    public List<DTRExpWarning> warnings() {
         return warnings;
     }
 

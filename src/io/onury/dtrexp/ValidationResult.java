@@ -3,7 +3,7 @@ package io.onury.dtrexp;
 import java.util.List;
 
 /**
- * Result of {@link DtrExp#validate(String)}: positioned parse errors (empty
+ * Result of {@link DTRExp#validate(String)}: positioned parse errors (empty
  * when valid — parse failure is the only failure, so at most one) or a
  * successful parse with zero or more warnings.
  *
@@ -11,7 +11,7 @@ import java.util.List;
  * @param errors   positioned parse errors; empty when valid
  * @param warnings static-analysis warnings (empty when invalid or clean)
  */
-public record ValidationResult(boolean valid, List<DtrExpParseException> errors, List<DtrExpWarning> warnings) {
+public record ValidationResult(boolean valid, List<DTRExpParseException> errors, List<DTRExpWarning> warnings) {
 
     public ValidationResult {
         errors = List.copyOf(errors);

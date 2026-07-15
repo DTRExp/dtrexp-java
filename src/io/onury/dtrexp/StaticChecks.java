@@ -32,7 +32,7 @@ final class StaticChecks {
     private StaticChecks() {
     }
 
-    static void check(Ast.Expr expr, List<DtrExpWarning> out) {
+    static void check(Ast.Expr expr, List<DTRExpWarning> out) {
         boolean hasW = expr.has('W');
         List<Integer> years = concreteYears(expr.find('Y'));
         for (Ast.Selector s : expr.selectors) {
@@ -41,7 +41,7 @@ final class StaticChecks {
                 continue; // T and Y have no size-based satisfiability check
             }
             if (!satisfiable(s, sizes)) {
-                out.add(new DtrExpWarning(s.pos, "statically unsatisfiable '" + s.des
+                out.add(new DTRExpWarning(s.pos, "statically unsatisfiable '" + s.des
                         + "' selector — it can never cover anything"));
             }
         }
@@ -215,7 +215,7 @@ final class StaticChecks {
 
     // -------------------------------------------------- M ∩ Q disjointness
 
-    private static void checkMonthQuarterDisjoint(Ast.Expr expr, List<DtrExpWarning> out) {
+    private static void checkMonthQuarterDisjoint(Ast.Expr expr, List<DTRExpWarning> out) {
         Ast.Selector m = expr.find('M');
         Ast.Selector q = expr.find('Q');
         if (m == null || q == null) {
@@ -231,7 +231,7 @@ final class StaticChecks {
                 return;
             }
         }
-        out.add(new DtrExpWarning(m.pos, "statically unsatisfiable — the M and Q selectors are disjoint"));
+        out.add(new DTRExpWarning(m.pos, "statically unsatisfiable — the M and Q selectors are disjoint"));
     }
 
     /**
