@@ -7,14 +7,14 @@ import java.io.Serial;
  * Carries the zero-based character position in the source string at which the
  * problem was detected.
  */
-public final class DtrExpParseException extends RuntimeException {
+public final class DTRExpParseException extends RuntimeException {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     private final int position;
 
-    public DtrExpParseException(int position, String message) {
+    public DTRExpParseException(int position, String message) {
         super(message + " (at " + position + ")");
         this.position = position;
     }

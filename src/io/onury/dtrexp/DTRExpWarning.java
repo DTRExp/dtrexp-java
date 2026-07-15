@@ -7,7 +7,7 @@ package io.onury.dtrexp;
  * @param position zero-based character offset of the offending component
  * @param message  human-readable description
  */
-public record DtrExpWarning(int position, String message) {
+public record DTRExpWarning(int position, String message) {
 
     @Override
     public String toString() {

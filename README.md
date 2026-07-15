@@ -22,12 +22,12 @@ Pure Java 17+, zero dependencies (`java.time` for IANA zones).
 ## Usage
 
 ```java
-import io.onury.dtrexp.DtrExp;
+import io.onury.dtrexp.DTRExp;
 import java.time.Instant;
 import java.time.ZoneId;
 
-DtrExp dtr = DtrExp.parse("T0900:1800 E1:5");   // Mon–Fri, 09:00–18:00
-// throws a positioned DtrExpParseException on a syntax or static-validity error
+DTRExp dtr = DTRExp.parse("T0900:1800 E1:5");   // Mon–Fri, 09:00–18:00
+// throws a positioned DTRExpParseException on a syntax or static-validity error
 
 boolean open = dtr.covers(Instant.now(), "Europe/Berlin");
 // —> true on a weekday, 09:00–18:00 Berlin local time
@@ -41,25 +41,25 @@ dtr.covers(instant, ZoneId.of("Asia/Tokyo")); // a preloaded ZoneId
 dtr.covers(instant, "Asia/Tokyo");            // an IANA identifier
 ```
 
-Note that you parse **once** (at write/config time) and evaluate **many**. A `DtrExp` is immutable after `parse` and safe to share across threads; `covers` is a single calendar-field extraction followed by integer comparisons, with no occurrence iteration. `toString()` returns the source expression verbatim.
+Note that you parse **once** (at write/config time) and evaluate **many**. A `DTRExp` is immutable after `parse` and safe to share across threads; `covers` is a single calendar-field extraction followed by integer comparisons, with no occurrence iteration. `toString()` returns the source expression verbatim.
 
 ## Errors and Warnings
 
 Both carry a **position**; the 0-based character offset into the source, rendered into the message as `(at N)`:
 
 ```java
-DtrExp.parse("Y*/3");            // anchorless stride — throws DtrExpParseException
+DTRExp.parse("Y*/3");            // anchorless stride — throws DTRExpParseException
 // e.position() points at the offending character
 
-ValidationResult res = DtrExp.validate("D30 M2");   // never throws
+ValidationResult res = DTRExp.validate("D30 M2");   // never throws
 res.valid();                     // true — it parses
-res.warnings();                  // [DtrExpWarning{position=…, message="unsatisfiable …"}]
+res.warnings();                  // [DTRExpWarning{position=…, message="unsatisfiable …"}]
                                  // no February has 30 days
 ```
 
-- `parse(s)` returns the expression or throws a `DtrExpParseException` (`position()` `int`, plus the message).
-- `validate(s)` never throws; typo-shaped input comes back as data. Returns a `ValidationResult` record with `valid()` `boolean`, `errors()` (parsing stops at the first syntax error, so at most one `DtrExpParseException`) and `warnings()`.
-- Warnings are the spec's [§9.1](https://github.com/DTRExp/dtrexp/blob/main/spec.md#91-the-existence-rule) unsatisfiability lint: expressions that parse but can never match. `DtrExp.warnings()` and `validate(s).warnings()` carry the same content. `DtrExpWarning` is a record of `(int position, String message)`.
+- `parse(s)` returns the expression or throws a `DTRExpParseException` (`position()` `int`, plus the message).
+- `validate(s)` never throws; typo-shaped input comes back as data. Returns a `ValidationResult` record with `valid()` `boolean`, `errors()` (parsing stops at the first syntax error, so at most one `DTRExpParseException`) and `warnings()`.
+- Warnings are the spec's [§9.1](https://github.com/DTRExp/dtrexp/blob/main/spec.md#91-the-existence-rule) unsatisfiability lint: expressions that parse but can never match. `DTRExp.warnings()` and `validate(s).warnings()` carry the same content. `DTRExpWarning` is a record of `(int position, String message)`.
 
 ## Conformance & Quality
 

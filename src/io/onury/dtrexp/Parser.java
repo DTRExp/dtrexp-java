@@ -21,13 +21,13 @@ final class Parser {
     private final String src;
     private int i;
     private final List<Ast.Expr> exprs = new ArrayList<>();
-    private final List<DtrExpWarning> warnings = new ArrayList<>();
+    private final List<DTRExpWarning> warnings = new ArrayList<>();
 
     private Parser(String src) {
         this.src = src;
     }
 
-    record Parsed(List<Ast.Expr> exprs, List<DtrExpWarning> warnings) {
+    record Parsed(List<Ast.Expr> exprs, List<DTRExpWarning> warnings) {
     }
 
     static Parsed parse(String src) {
@@ -676,7 +676,7 @@ final class Parser {
         return c >= '0' && c <= '9';
     }
 
-    private DtrExpParseException err(int pos, String message) {
-        return new DtrExpParseException(pos, message);
+    private DTRExpParseException err(int pos, String message) {
+        return new DTRExpParseException(pos, message);
     }
 }
