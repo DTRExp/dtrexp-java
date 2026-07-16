@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Metadata for Maven Central. The build itself stays javac-only (run.sh);
+     release.sh assembles and signs the Central bundle from this file. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.onury</groupId>
+  <artifactId>dtrexp</artifactId>
+  <version>1.0.1</version>
+  <packaging>jar</packaging>
+
+  <name>DTRExp</name>
+  <description>Java implementation of DTRExp — compact date-time range and recurrence expressions, evaluated by coverage. Pure Java 17+, zero dependencies.</description>
+  <url>https://dtrexp.org</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://github.com/DTRExp/dtrexp-java/blob/main/LICENSE</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>onury</id>
+      <name>Onur Yıldırım</name>
+      <email>onur@cutepilot.com</email>
+      <url>https://onury.io</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/DTRExp/dtrexp-java.git</connection>
+    <developerConnection>scm:git:git@github.com:DTRExp/dtrexp-java.git</developerConnection>
+    <url>https://github.com/DTRExp/dtrexp-java</url>
+  </scm>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+</project>
