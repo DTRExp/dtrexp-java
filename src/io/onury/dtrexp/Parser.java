@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Recursive-descent parser for DTRExp draft 2.8. Tokens match greedily and
+ * Recursive-descent parser for DTRExp draft 2.9. Tokens match greedily and
  * never backtrack on semantic failure (spec section 8). Static validity rules
  * (domains, stride limits, one-designator-once, cadence/bounds arity) are
  * enforced here; static satisfiability warnings live in {@link StaticChecks}.
