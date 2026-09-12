@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A parsed DTRExp — Date-Time Range &amp; Recurrence Expression (draft 2.8).
+ * A parsed DTRExp — Date-Time Range &amp; Recurrence Expression (draft 2.9).
  *
  * <p>A DTRExp denotes a possibly infinite set of time intervals and is
  * evaluated for <em>coverage</em>: {@link #covers(Instant, ZoneId)} answers
