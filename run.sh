@@ -5,12 +5,12 @@
 #
 #   ./run.sh          compile, run the conformance vectors + unit tests
 #   ./run.sh cover    the same under JaCoCo; writes _tools/cov.csv,
-#                     _tools/cov-html/ and _backup/reports/coverage/jacoco.xml,
+#                     _tools/cov-html/ and test/coverage/jacoco.xml,
 #                     and fails unless coverage is 100%
 #   ./run.sh mutate   PIT mutation testing over the shipped classes; needs the
 #                     pitest + JUnit jars in _tools/pit/ (fetch list below),
 #                     writes _tools/pit-report/ and
-#                     _backup/reports/mutation/mutations.xml
+#                     test/mutation/mutations.xml
 #
 # Exits nonzero on any compile warning/error or test failure.
 set -euo pipefail
@@ -58,8 +58,8 @@ if [ "$MODE" = "mutate" ]; then
         --outputFormats HTML,CSV,XML \
         --threads 4
     # The latest report stays where the next clean cannot reach it.
-    mkdir -p _backup/reports/mutation
-    cp "$(find _tools/pit-report -name mutations.xml | head -1)" _backup/reports/mutation/mutations.xml
+    mkdir -p test/mutation
+    cp "$(find _tools/pit-report -name mutations.xml | head -1)" test/mutation/mutations.xml
     exit 0
 fi
 
@@ -97,11 +97,11 @@ java "-javaagent:$AGENT=destfile=$TOOLS/jacoco-conf.exec,$EXCL" \
 java "-javaagent:$AGENT=destfile=$TOOLS/jacoco-unit.exec,$EXCL" \
     -cp out io.onury.dtrexp.UnitTests
 
-mkdir -p _backup/reports/coverage
+mkdir -p test/coverage
 java -jar "$CLI" report "$TOOLS/jacoco-conf.exec" "$TOOLS/jacoco-unit.exec" \
     --classfiles "$TOOLS/prod-classes" --sourcefiles src \
     --csv "$TOOLS/cov.csv" --html "$TOOLS/cov-html" \
-    --xml _backup/reports/coverage/jacoco.xml >/dev/null
+    --xml test/coverage/jacoco.xml >/dev/null
 
 echo
 awk -F, 'NR>1 {bm+=$6; bc+=$7; lm+=$8; lc+=$9}
