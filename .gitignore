@@ -3,3 +3,6 @@ _notes/
 out/
 *.class
 _tools/
+
+# Scratch and the latest test reports (coverage, mutation), never committed
+_backup/

@@ -9,7 +9,7 @@ The library itself is zero-dependency and builds with plain `javac`. Coverage (J
 ```sh
 ./run.sh          # compile, run the conformance vectors + unit tests
 ./run.sh cover    # the same under JaCoCo; fails unless coverage is 100%
-./run.sh mutate   # PIT mutation testing; writes _tools/pit-report/
+./run.sh mutate   # PIT mutation testing; writes _tools/pit-report/ and _backup/reports/mutation/mutations.xml
 ```
 
 Each mode prints fetch instructions for its jars on first use (`cover`: the JaCoCo agent + CLI; `mutate`: PIT 1.25.7, the JUnit 5.14/1.14 platform, and commons-text/lang3 for PIT's CSV writer).
