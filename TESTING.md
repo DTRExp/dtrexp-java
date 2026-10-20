@@ -24,7 +24,7 @@ Two environment notes, learned the hard way: PIT's CSV listener genuinely requir
 
 ## Mutation Testing
 
-Full run: **638 mutants: 627 caught, 11 equivalent (justified below), 0 unjustified survivors.**
+Full run (2026-10-21, with `withZone`): **642 mutants: 631 caught, 11 equivalent (justified below), 0 unjustified survivors.**
 
 Seven of the caught are non-termination kills: mutants that turn bounded loops into infinite or allocation-unbounded ones (the parser's space-skipper, list-building loops). A suite that can never complete has detected the mutant; PIT counts these toward its kill score, as Stryker does with `TimedOut`.
 
