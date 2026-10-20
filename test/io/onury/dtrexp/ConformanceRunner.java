@@ -1,6 +1,7 @@
 package io.onury.dtrexp;
 
-// Conformance runner for the DTRExp draft-2.8 vectors (spec section 12).
+// Conformance runner for the DTRExp draft-2.8 vectors (spec section 12); draft 2.9
+// left the Core vectors unchanged, so they still say 2.8.
 // Compile everything and run the full suite with ONE command (from the repo root):
 //
 //   javac -Xlint:all -Werror -d out $(find src test -name '*.java') && java -cp out io.onury.dtrexp.ConformanceRunner test/resources/vectors.json
