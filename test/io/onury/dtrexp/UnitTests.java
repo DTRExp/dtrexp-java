@@ -9,9 +9,11 @@ package io.onury.dtrexp;
 //
 // Exits nonzero on any failure. Wired into ./run.sh cover.
 
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 public final class UnitTests {
 
@@ -32,6 +34,7 @@ public final class UnitTests {
         passed = 0;
         failed = 0;
         publicSurface();
+        boundZone();
         boundsEvaluation();
         cadenceEvaluation();
         ordinalScopes();
@@ -88,6 +91,42 @@ public final class UnitTests {
         ValidationResult bad = DTRExp.validate("Zx");
         check(!bad.valid() && bad.errors().size() == 1, "validate() of a bad expr carries exactly one error");
         check(bad.errors().get(0).position() >= 0, "the parse error exposes a character position");
+    }
+
+    // ----------------------------------------------------------- bound zone
+
+    private static void boundZone() {
+        // June => Berlin is UTC+2, so 07:30Z is 09:30 local; Tokyo is UTC+9.
+        DTRExp hours = DTRExp.parse("T0900:1800 E1:5");
+        Instant t = Instant.parse("2026-07-07T07:30:00Z");
+        DTRExp berlin = hours.withZone("Europe/Berlin");
+        check(berlin != hours, "withZone() returns a new expression");
+        check(berlin.zone().equals(Optional.of(ZoneId.of("Europe/Berlin"))),
+                "zone() reads the bound zone");
+        check(hours.zone().isEmpty(), "the original stays unbound");
+        check(berlin.covers(t), "covers(Instant) evaluates in the bound zone");
+        check(!hours.covers(t), "the original still evaluates in UTC");
+        check(!berlin.covers(t, ZoneOffset.UTC), "a ZoneId passed to a call wins");
+        check(!berlin.covers(t, "UTC"), "a zone identifier passed to a call wins");
+        check(hours.withZone(ZoneOffset.UTC).covers(t, "Europe/Berlin"),
+                "a call's zone wins over a UTC binding too");
+        DTRExp tokyo = berlin.withZone(ZoneId.of("Asia/Tokyo"));
+        Instant later = Instant.parse("2026-07-07T09:30:00Z");
+        check(!tokyo.covers(later), "a rebound copy evaluates in its new zone (18:30 in Tokyo)");
+        check(berlin.covers(later), "rebinding leaves the copy it came from as it was (11:30 in Berlin)");
+        check(berlin.source().equals(hours.source()) && berlin.toString().equals(hours.toString()),
+                "a bound copy keeps the source and canonical form");
+        DTRExp warned = DTRExp.parse("D30 M2");
+        check(warned.withZone("Europe/Berlin").warnings().equals(warned.warnings()),
+                "a bound copy keeps the warnings");
+        check(throwsA(DateTimeException.class, () -> hours.withZone("Mars/Olympus")),
+                "an unknown zone fails at bind");
+        check(throwsA(DateTimeException.class, () -> hours.withZone("")),
+                "an empty zone fails at bind");
+        check(throwsA(NullPointerException.class, () -> hours.withZone((String) null)),
+                "a null identifier fails at bind");
+        check(throwsA(NullPointerException.class, () -> hours.withZone((ZoneId) null)),
+                "a null ZoneId fails at bind");
     }
 
     // --------------------------------------------------------------- bounds
@@ -515,6 +554,15 @@ public final class UnitTests {
         check(v.valid() && v.warnings().isEmpty(),
                 "\"" + expr + "\" must be quiet" + (v.valid() ? " (warned: " + v.warnings() + ")"
                         : " (rejected: " + v.errors().get(0).getMessage() + ")"));
+    }
+
+    private static boolean throwsA(Class<? extends Throwable> type, Runnable body) {
+        try {
+            body.run();
+            return false;
+        } catch (RuntimeException e) {
+            return type.isInstance(e);
+        }
     }
 
     private static void check(boolean cond, String msg) {

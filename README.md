@@ -49,6 +49,16 @@ dtr.covers(instant, ZoneId.of("Asia/Tokyo")); // a preloaded ZoneId
 dtr.covers(instant, "Asia/Tokyo");            // an IANA identifier
 ```
 
+Or bind the zone once: `withZone` returns a copy whose `covers(instant)` defaults to that zone, readable as `zone()`; the original is left as it is, and a zone passed to a call still wins. An unknown or empty identifier fails at once, as `ZoneId.of` does.
+
+```java
+DTRExp store = dtr.withZone("Europe/Berlin"); // or withZone(ZoneId)
+store.covers(Instant.now());                  // evaluated in Berlin
+store.zone();                                 // Optional[Europe/Berlin]
+```
+
+Bind the zone when it belongs to what the expression describes (a store's hours, a venue's schedule), and pass it per call when it belongs to whoever is asking (a rule shown to each user in their own zone). A bound copy shares its `source()` with the original, so a cache of parsed expressions keys on the source and the zone together.
+
 Note that you parse **once** (at write/config time) and evaluate **many**. A `DTRExp` is immutable after `parse` and safe to share across threads; `covers` is a single calendar-field extraction followed by integer comparisons, with no occurrence iteration. `toString()` returns the source expression verbatim.
 
 ## Errors and Warnings
