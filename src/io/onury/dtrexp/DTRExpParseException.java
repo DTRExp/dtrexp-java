@@ -4,8 +4,8 @@ import java.io.Serial;
 
 /**
  * Thrown when a DTR expression fails to parse or fails static validation.
- * Carries the zero-based character position in the source string at which the
- * problem was detected.
+ * Carries the position of the token at fault: the 0-based offset, in Unicode
+ * code points, of its first character (spec section 8).
  */
 public final class DTRExpParseException extends RuntimeException {
 
@@ -19,7 +19,10 @@ public final class DTRExpParseException extends RuntimeException {
         this.position = position;
     }
 
-    /** Zero-based character offset into the source expression. */
+    /**
+     * The 0-based code-point offset of the token at fault. Every character
+     * before it is ASCII, so it is also the {@code String} index.
+     */
     public int position() {
         return position;
     }

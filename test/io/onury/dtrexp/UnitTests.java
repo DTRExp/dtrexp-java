@@ -13,6 +13,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.zone.ZoneRulesException;
 import java.util.Optional;
 
 public final class UnitTests {
@@ -35,6 +36,9 @@ public final class UnitTests {
         failed = 0;
         publicSurface();
         boundZone();
+        zoneIdentifiers();
+        errorPositions();
+        integerLimit();
         boundsEvaluation();
         cadenceEvaluation();
         ordinalScopes();
@@ -129,6 +133,109 @@ public final class UnitTests {
                 "a null ZoneId fails at bind");
     }
 
+    // ------------------------------------------------------ zone identifiers
+
+    private static void zoneIdentifiers() {
+        // API.md: the tz database's zone and link names, in any case, and
+        // canonicalized; anything else is an unknown zone
+        DTRExp hours = DTRExp.parse("T0900:1800 E1:5");
+        Instant t = Instant.parse("2026-07-07T07:30:00Z"); // 09:30 in Berlin
+        check(hours.covers(t, "europe/berlin"), "a lowercase zone name evaluates in that zone");
+        check(hours.covers(t, "EUROPE/BERLIN"), "an uppercase zone name evaluates in that zone");
+        check(hours.withZone("europe/berlin").zone().equals(Optional.of(ZoneId.of("Europe/Berlin"))),
+                "a bound name reads back in the database's spelling");
+        check(hours.withZone("utc").zone().equals(Optional.of(ZoneId.of("UTC"))), "utc binds as UTC");
+        check(hours.withZone("us/eastern").zone().equals(Optional.of(ZoneId.of("US/Eastern"))),
+                "a link name binds as that name");
+        check(hours.withZone("etc/gmt+5").zone().equals(Optional.of(ZoneId.of("Etc/GMT+5"))),
+                "an Etc/ name binds");
+        for (String zone : new String[] {"Z", "+02:00", "UTC+2", "GMT+2", "UT", "SystemV/AST4",
+                "systemv/ast4", "Mars/Olympus", "", " UTC", "Europe/Berlin ", "Asia/\u212Aolkata"}) {
+            check(throwsA(ZoneRulesException.class, () -> hours.covers(t, zone)),
+                    "covers(\"" + zone + "\") throws ZoneRulesException");
+            check(throwsA(ZoneRulesException.class, () -> hours.withZone(zone)),
+                    "withZone(\"" + zone + "\") throws ZoneRulesException");
+        }
+        check(throwsA(NullPointerException.class, () -> hours.covers(t, (String) null)),
+                "a null identifier fails");
+        check(DTRExp.asciiLower("AZaz/_-+09\u212A").equals("azaz/_-+09\u212A"),
+                "asciiLower folds ASCII letters only");
+    }
+
+    // ------------------------------------------------------- error positions
+
+    private static void errorPositions() {
+        // spec section 8: the first character of the token at fault
+        rejectsAt("D367 Y*", 1);           // the day value, not the designator
+        rejectsAt("D5,40", 3);             // the second day value
+        rejectsAt("D1:40", 3);             // a range end
+        rejectsAt("D-32", 1);
+        rejectsAt("D2/40 M1", 3);          // a deferred stride interval
+        rejectsAt("D2/3/40", 5);           // the duration is checked before D's scope
+        rejectsAt("M3/14", 3);
+        rejectsAt("M1/1", 3);
+        rejectsAt("M1/3/3", 5);
+        rejectsAt("M1/4/0", 5);
+        rejectsAt("E7#0", 3);
+        rejectsAt("E7#-6", 3);             // the count, its sign included
+        rejectsAt("E1#", 3);               // the end of input, where the count was required
+        rejectsAt("E1#-", 3);
+        rejectsAt("20200101/0D", 9);
+        rejectsAt("20200101/2D/0H", 12);
+        rejectsAt("20200101/10D/1M", 13);
+        rejectsAt("20240131/1M", 9);       // an implied duration names the period
+        rejectsAt("20200101/10D/20D", 13);
+        rejectsAt("20180120T09", 0);       // every date-literal error is at its start
+        rejectsAt("20180120T2400/1D", 0);
+        rejectsAt("20200101T0060", 0);
+        rejectsAt("20200101T000060", 0);
+        rejectsAt("*", 1);                 // a bounds '*' needs a ':'
+        rejectsAt("*2020", 1);
+        rejectsAt("Y2025:2020", 6);        // a range end that cannot follow its start
+        rejectsAt("M,1", 1);
+        rejectsAt("D40 Q1 | D40", 10);     // each branch checks its own day values
+        rejectsMsg("D-32", "negative value out of domain");
+        rejectsMsg("D40", "day out of domain (1-31)");
+    }
+
+    // --------------------------------------------------------- integer limit
+
+    private static void integerLimit() {
+        // spec section 8: at most 2147483647, leading zeros unlimited
+        accepts("M00000003");
+        accepts("M0000000000000003");
+        accepts("Y2020:*/10000000");
+        accepts("Y1:*/10000001");
+        accepts("Y1:*/2147483647");
+        accepts("Y1:*/2147483647/2147483646");
+        accepts("E7#-00000000001");
+        accepts("20200101/2147483647D/2147483646D");
+        rejectsAt("M2147483648", 1);
+        rejectsAt("M-2147483648", 1);
+        rejectsAt("Y99999999999999999999", 1);
+        rejectsAt("D2147483648 Y*", 1);
+        rejectsAt("E7#2147483648", 3);
+        rejectsAt("E7#18446744073709551617", 3);
+        rejectsAt("Y1:*/2147483648", 5);
+        rejectsAt("Y1:*/2/2147483648", 7);
+        rejectsAt("20200101/2147483648D", 9);
+        rejectsAt("20200101/2D/2147483648D", 12);
+        rejectsMsg("E7#2147483648", "integer above 2147483647");
+        check(DTRExp.validate("E7#18446744073709551617").errors().size() == 1,
+                "validate reports an integer above the limit as data, never a throw");
+        // a count at the limit meets a date without leaving java.time's range
+        covers("00010101/2147483647Y/3000000H", "0300-12-31T00:00:00Z", "UTC", true);
+        covers("00010101/2147483647Y/3000000H", "0400-12-31T00:00:00Z", "UTC", false);
+        covers("00010101/2147483647Y/2147483646m", "4000-12-31T00:00:00Z", "UTC", true);
+        covers("00010101/2147483647Y/2147483646m", "9999-12-31T00:00:00Z", "UTC", false);
+        covers("00010101/2147483647Y/2147483646H", "9999-12-31T00:00:00Z", "UTC", true);
+        covers("99991231/2147483647Y", "9999-12-31T12:00:00Z", "UTC", true);
+        covers("00010101/2147483647M/2147483646W", "9999-12-31T00:00:00Z", "UTC", true);
+        covers("00010101/2147483647W/2147483646W", "9999-12-31T00:00:00Z", "UTC", true);
+        covers("Y1:*/2147483647", "0001-12-31T00:00:00Z", "UTC", true);
+        covers("Y1:*/2147483647", "9999-12-31T00:00:00Z", "UTC", false);
+    }
+
     // --------------------------------------------------------------- bounds
 
     private static void boundsEvaluation() {
@@ -202,7 +309,7 @@ public final class UnitTests {
     // ---------------------------------------------------------- parse errors
 
     private static void parseErrors() {
-        rejectsAt("M", 0);                 // designator without value (end of input)
+        rejectsAt("M", 1);                 // designator without value (end of input)
         rejects("Y M1");                   // designator without value (space)
         rejects("Y,M1");                   // designator without value (comma)
         rejects("Y|M1");                   // designator without value (pipe)
@@ -218,7 +325,7 @@ public final class UnitTests {
         rejects("M!1/2");                  // exclusion carrying a stride
         rejects("Y2025:2020");             // backwards year range
         rejects("M-");                     // missing value after '-'
-        rejects("M12345678");              // integer too long (>7 digits)
+        rejects("M12345678");              // value out of domain
         rejects("H-0");                    // negative zero out of domain
         rejects("E-8");                    // negative magnitude beyond the domain size
         rejects("E1:2#1");                 // ordinal on a range
@@ -235,7 +342,7 @@ public final class UnitTests {
         rejects("M1/4/0");                 // stride duration < 1
         rejects("M1/4/4");                 // stride duration >= interval
         rejects("M1/");                    // missing stride interval
-        rejects("M1/12345678");            // stride interval out of range
+        rejects("M1/12345678");            // stride interval exceeds domain
     }
 
     private static void timeParseErrors() {

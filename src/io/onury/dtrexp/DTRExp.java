@@ -3,12 +3,16 @@ package io.onury.dtrexp;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.zone.ZoneRulesException;
+import java.time.zone.ZoneRulesProvider;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * A parsed DTRExp — Date-Time Range &amp; Recurrence Expression (draft 2.9).
+ * A parsed DTRExp — Date-Time Range &amp; Recurrence Expression (draft 3).
  *
  * <p>A DTRExp denotes a possibly infinite set of time intervals and is
  * evaluated for <em>coverage</em>: {@link #covers(Instant, ZoneId)} answers
@@ -78,11 +82,12 @@ public final class DTRExp {
 
     /**
      * {@link #withZone(ZoneId)} with the zone given as an IANA identifier, e.g.
-     * {@code "Europe/Berlin"}. An unknown or empty identifier fails here, at once,
-     * as {@link ZoneId#of(String)} does.
+     * {@code "Europe/Berlin"}, matched without regard to case (see
+     * {@link #covers(Instant, String)}). An unknown or empty identifier fails
+     * here, at once, with a {@link ZoneRulesException}.
      */
     public DTRExp withZone(String zoneId) {
-        return withZone(ZoneId.of(Objects.requireNonNull(zoneId, "zoneId")));
+        return withZone(zoneOf(zoneId));
     }
 
     /** The bound evaluation zone, empty when none is bound. */
@@ -102,9 +107,57 @@ public final class DTRExp {
         return Evaluator.covers(exprs, instant, zone);
     }
 
-    /** Coverage with the zone given as an IANA identifier, e.g. {@code "Europe/Berlin"}. */
+    /**
+     * Coverage with the zone given as an IANA identifier, e.g.
+     * {@code "Europe/Berlin"}: a zone or link name of the tz database that
+     * {@code java.time} carries, matched without regard to case and
+     * canonicalized ({@code "europe/berlin"} is {@code Europe/Berlin}).
+     * Anything else throws a {@link ZoneRulesException}, as an unknown zone
+     * does: a fixed offset ({@code "+02:00"}, {@code "UTC+2"}), {@code "Z"},
+     * the retired {@code SystemV/} names, and the empty string.
+     */
     public boolean covers(Instant instant, String zoneId) {
-        return covers(instant, ZoneId.of(Objects.requireNonNull(zoneId, "zoneId")));
+        return covers(instant, zoneOf(zoneId));
+    }
+
+    /**
+     * Resolves a zone identifier against the names the registered zone rules
+     * providers know (the JDK's tz database), so {@link ZoneId#of(String)}'s
+     * offsets and prefixed offsets never reach evaluation.
+     */
+    static ZoneId zoneOf(String zoneId) {
+        String name = ZoneNames.CANONICAL.get(asciiLower(Objects.requireNonNull(zoneId, "zoneId")));
+        if (name == null) {
+            throw new ZoneRulesException("Unknown time-zone ID: " + zoneId);
+        }
+        return ZoneId.of(name);
+    }
+
+    /** Lowercases ASCII letters only, so no other character folds onto a name. */
+    static String asciiLower(String s) {
+        char[] chars = s.toCharArray();
+        for (int k = 0; k < chars.length; k++) {
+            if (chars[k] >= 'A' && chars[k] <= 'Z') {
+                chars[k] += 'a' - 'A';
+            }
+        }
+        return new String(chars);
+    }
+
+    /** The zone names, lowercased to their spelling; built on first use. */
+    private static final class ZoneNames {
+        static final Map<String, String> CANONICAL = load();
+
+        private static Map<String, String> load() {
+            Map<String, String> names = new HashMap<>();
+            for (String id : ZoneRulesProvider.getAvailableZoneIds()) {
+                // the JDK still carries the SystemV names tz retired in 2020b
+                if (!id.startsWith("SystemV/")) {
+                    names.put(asciiLower(id), id);
+                }
+            }
+            return names;
+        }
     }
 
     /**

@@ -1,5 +1,6 @@
 package io.onury.dtrexp;
 
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -298,14 +299,24 @@ final class Evaluator {
         return elapsed % periodMs < durMs;
     }
 
+    /**
+     * {@code base} plus {@code n} units, or {@link LocalDateTime#MAX} when the
+     * sum leaves java.time's year range (±999,999,999): a count may reach
+     * 2147483647 (spec section 8), and a date-time past that range lies after
+     * every one {@code covers} compares it with.
+     */
     private static LocalDateTime plus(LocalDateTime base, long n, char unit) {
-        return switch (unit) {
-            case 'Y' -> base.plusYears(n);
-            case 'M' -> base.plusMonths(n);
-            case 'W' -> base.plusWeeks(n);
-            case 'D' -> base.plusDays(n);
-            case 'H' -> base.plusHours(n);
-            default -> base.plusMinutes(n); // 'm'
-        };
+        try {
+            return switch (unit) {
+                case 'Y' -> base.plusYears(n);
+                case 'M' -> base.plusMonths(n);
+                case 'W' -> base.plusWeeks(n);
+                case 'D' -> base.plusDays(n);
+                case 'H' -> base.plusHours(n);
+                default -> base.plusMinutes(n); // 'm'
+            };
+        } catch (DateTimeException e) {
+            return LocalDateTime.MAX;
+        }
     }
 }

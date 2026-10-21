@@ -1,7 +1,7 @@
 package io.onury.dtrexp;
 
-// Conformance runner for the DTRExp draft-2.8 vectors (spec section 12); draft 2.9
-// left the Core vectors unchanged, so they still say 2.8.
+// Conformance runner for the DTRExp draft 3 vectors (spec section 12). An invalid
+// vector passes only when parsing fails at the position it names.
 // Compile everything and run the full suite with ONE command (from the repo root):
 //
 //   javac -Xlint:all -Werror -d out $(find src test -name '*.java') && java -cp out io.onury.dtrexp.ConformanceRunner test/resources/vectors.json
@@ -93,13 +93,18 @@ public final class ConformanceRunner {
         for (Object e : entries) {
             Map<?, ?> entry = (Map<?, ?>) e;
             String expression = (String) entry.get("expression");
+            long position = (Long) entry.get("position");
             ValidationResult v = DTRExp.validate(expression);
-            if (!v.valid()) {
-                ok++;
-            } else {
+            if (v.valid()) {
                 bad++;
                 fail("invalid", "\"" + expression + "\" accepted — must be rejected ("
                         + entry.get("reason") + ")");
+            } else if (v.errors().get(0).position() != position) {
+                bad++;
+                fail("invalid", "\"" + expression + "\" rejected at " + v.errors().get(0).position()
+                        + ", want " + position + " (" + entry.get("reason") + "): " + v.errors().get(0).getMessage());
+            } else {
+                ok++;
             }
         }
         passed += ok;

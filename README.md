@@ -11,7 +11,7 @@ E7#-1 M4                 last Sunday of April, every year
 M!7                      every month except July
 ```
 
-Scope: **parsing, validation and coverage evaluation** (the spec's core interface). Rendering, description and RRULE export are out of scope; the [reference implementation][js] has them.
+It implements spec draft 3. Scope: **parsing, validation and coverage evaluation** (the spec's core interface). Rendering, description and RRULE export are out of scope; the [reference implementation][js] has them.
 
 ## Install
 
@@ -49,7 +49,7 @@ dtr.covers(instant, ZoneId.of("Asia/Tokyo")); // a preloaded ZoneId
 dtr.covers(instant, "Asia/Tokyo");            // an IANA identifier
 ```
 
-Or bind the zone once: `withZone` returns a copy whose `covers(instant)` defaults to that zone, readable as `zone()`; the original is left as it is, and a zone passed to a call still wins. An unknown or empty identifier fails at once, as `ZoneId.of` does.
+Or bind the zone once: `withZone` returns a copy whose `covers(instant)` defaults to that zone, readable as `zone()`; the original is left as it is, and a zone passed to a call still wins. An unknown or empty identifier fails at once with a `ZoneRulesException`.
 
 ```java
 DTRExp store = dtr.withZone("Europe/Berlin"); // or withZone(ZoneId)
@@ -57,13 +57,15 @@ store.covers(Instant.now());                  // evaluated in Berlin
 store.zone();                                 // Optional[Europe/Berlin]
 ```
 
+An identifier is a zone or link name of the tz database `java.time` carries (`Europe/Berlin`, `US/Eastern`, `UTC`, `Etc/GMT+5`), matched without regard to case: `europe/berlin` binds as `Europe/Berlin`. Anything else throws a `ZoneRulesException`, as an unknown zone does, including what `ZoneId.of` would otherwise accept: a fixed offset (`+02:00`, `UTC+2`), `Z`, and the `SystemV/` names the tz database retired. The rules come from the JDK's bundled tz data (`ZoneRulesProvider.getVersions` names the release); update the JDK, or run Oracle's TZUpdater, to move to a newer one. A `ZoneId` passed directly is used as given.
+
 Bind the zone when it belongs to what the expression describes (a store's hours, a venue's schedule), and pass it per call when it belongs to whoever is asking (a rule shown to each user in their own zone). A bound copy shares its `source()` with the original, so a cache of parsed expressions keys on the source and the zone together.
 
 Note that you parse **once** (at write/config time) and evaluate **many**. A `DTRExp` is immutable after `parse` and safe to share across threads; `covers` is a single calendar-field extraction followed by integer comparisons, with no occurrence iteration. `toString()` returns the source expression verbatim.
 
 ## Errors and Warnings
 
-Both carry a **position**; the 0-based character offset into the source, rendered into the message as `(at N)`:
+Both carry a **position**: the 0-based offset, in Unicode code points, of the first character of the token at fault (spec §8), rendered into the message as `(at N)`. The grammar is ASCII and parsing stops at the first character outside it, so the offset is also the `String` index:
 
 ```java
 DTRExp.parse("Y*/3");            // anchorless stride — throws DTRExpParseException
@@ -78,10 +80,11 @@ res.warnings();                  // [DTRExpWarning{position=…, message="unsati
 - `parse(s)` returns the expression or throws a `DTRExpParseException` (`position()` `int`, plus the message).
 - `validate(s)` never throws; typo-shaped input comes back as data. Returns a `ValidationResult` record with `valid()` `boolean`, `errors()` (parsing stops at the first syntax error, so at most one `DTRExpParseException`) and `warnings()`.
 - Warnings are the spec's [§9.1](https://github.com/DTRExp/dtrexp/blob/main/spec.md#91-the-existence-rule) unsatisfiability lint: expressions that parse but can never match. `DTRExp.warnings()` and `validate(s).warnings()` carry the same content. `DTRExpWarning` is a record of `(int position, String message)`.
+- An integer is at most 2,147,483,647, however many leading zeros it carries (`M0000000003` is `M3`); a larger one is a parse error at that integer. Domains bound most values far lower; the limit is what bounds `Y` stride intervals and cadence periods and durations.
 
 ## Conformance & Quality
 
-- The test suite is driven by the shared [`vectors.json`][vectors] from the spec repo (the draft 2.8 file; draft 2.9 left the Core vectors unchanged): every coverage, rejection, warning and quiet vector, including the calendar traps (Feb 29 across 2000/2024/**2100**, `W53` existence, DST gap/overlap in `Europe/Berlin`). The vectors are vendored at `test/resources/vectors.json`; see [VECTORS.md][vectors-md] for how the suite works.
+- The test suite is driven by the shared [`vectors.json`][vectors] from the spec repo (the draft 3 file): every coverage, rejection, warning and quiet vector, including the calendar traps (Feb 29 across 2000/2024/**2100**, `W53` existence, DST gap/overlap in `Europe/Berlin`); a rejection passes only at the position the vector names. The vectors are vendored at `test/resources/vectors.json`; see [VECTORS.md][vectors-md] for how the suite works.
 - The build compiles under `javac -Xlint:all -Werror`, so a warning fails it.
 - Zero dependencies.
 

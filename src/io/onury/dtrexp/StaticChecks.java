@@ -18,7 +18,7 @@ import java.util.Set;
  *       by co-present selectors (catches {@code D30 M2}, {@code W53 Y2021},
  *       {@code D366 Y2021}, and statically-empty non-wrap ranges like
  *       {@code D-1:5}, {@code M-2:2}, {@code D366:* Y2021});</li>
- *   <li>full-domain exclusions ({@code M!1:12});</li>
+ *   <li>full-domain exclusions ({@code M!1:12}, {@code Y!1:9999});</li>
  *   <li>{@code M}∩{@code Q} disjointness ({@code M-1 Q1}).</li>
  * </ul>
  *
@@ -38,7 +38,7 @@ final class StaticChecks {
         for (Ast.Selector s : expr.selectors) {
             int[] sizes = possibleSizes(s.des, expr, years, hasW);
             if (sizes == null) {
-                continue; // T and Y have no size-based satisfiability check
+                continue; // T has no size-based satisfiability check
             }
             if (!satisfiable(s, sizes)) {
                 out.add(new DTRExpWarning(s.pos, "statically unsatisfiable '" + s.des
@@ -80,8 +80,10 @@ final class StaticChecks {
             }
             case 'D':
                 return daySizes(expr, years, hasW);
+            case 'Y':
+                return new int[] {9999}; // the year domain is 1-9999 (spec section 3.1)
             default:
-                return null; // Y, T
+                return null; // T
         }
     }
 
