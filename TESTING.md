@@ -24,7 +24,7 @@ Two environment notes, learned the hard way: PIT's CSV listener genuinely requir
 
 ## Mutation Testing
 
-Full run (2026-10-21, draft 3: error positions, the integer limit, zone names): **643 mutants: 632 caught, 11 equivalent, 0 unjustified survivors.** Ten of the equivalents are still in the code and justified below; the eleventh went with the date-literal code it sat in.
+Full run (2026-10-21, draft 3: error positions, the integer limit, zone names, the earliest error winning; rerun after the duplicate check became linear and a misplaced fraction a rule error): **690 mutants: 680 caught (one as a memory error, a mutant that never ends the digit run), 10 equivalent, 0 unjustified survivors.** Ten of the equivalents are still in the code and justified below; the eleventh went with the date-literal code it sat in.
 
 `Parser` rerun on its own (2026-10-21, after the parser began reading on past a rule error so that the earliest error wins, a later grammar error included, with only D's domain waiting for the branch): **371 mutants: 367 caught, 4 survivors, the four `Parser` equivalents below.** Two more survived a first pass and were killed by new tests: a zero cadence period with a written duration (`20200101/0D/1H`), and the value an integer above the limit reads as, now the limit itself on the one return.
 
