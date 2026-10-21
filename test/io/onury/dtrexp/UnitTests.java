@@ -179,7 +179,17 @@ public final class UnitTests {
         rejectsAt("E7#0", 3);
         rejectsAt("E7#-6", 3);             // the count, its sign included
         rejectsAt("E1#", 3);               // the end of input, where the count was required
-        rejectsAt("E1#-", 3);
+        rejectsAt("E1#-", 4);              // past the sign, where the integer was required
+        rejectsAt("M3:-", 4);
+        rejectsAt("T090000.", 7);          // a time value's fraction is its own token, from its '.'
+        rejectsAt("T0900000", 1);          // the time value is the whole digit run
+        rejectsAt("T0900:090", 6);
+        rejectsAt("T0900:", 6);            // the end, where a time value was required
+        rejectsMsg("T", "expected a time value");
+        rejectsMsg("T1", "a time value is hh, hhmm or hhmmss");
+        rejectsAt("20200101T09001", 0);    // a further digit makes the time part malformed
+        rejectsAt("   ", 3);               // the end of the spaces, where a component was required
+        rejectsAt("\t", 0);               // a tab begins no token
         rejectsAt("20200101/0D", 9);
         rejectsAt("20200101/2D/0H", 12);
         rejectsAt("20200101/10D/1M", 13);
@@ -194,6 +204,57 @@ public final class UnitTests {
         rejectsAt("Y2025:2020", 6);        // a range end that cannot follow its start
         rejectsAt("M,1", 1);
         rejectsAt("D40 Q1 | D40", 10);     // each branch checks its own day values
+        // a rule error reads on to the end of its branch, a later grammar error included
+        rejectsAt("M13,X", 1);
+        rejectsAt("Y2020:2019,X", 6);
+        rejectsAt("Y-1 X", 1);
+        rejectsAt("M-0 X", 1);
+        rejectsAt("M-13 X", 1);
+        rejectsAt("E7#0 X", 3);
+        rejectsAt("M1/1 X", 3);
+        rejectsAt("M1/13 X", 3);
+        rejectsAt("M1/3/3 X", 5);
+        rejectsAt("H22:0/2 X", 5);
+        rejectsAt("Y*/3 X", 2);
+        rejectsAt("M*:3/2 X", 4);
+        rejectsAt("M-1:3/2 X", 5);
+        rejectsAt("T25 X", 1);
+        rejectsAt("T2400 X", 1);
+        rejectsAt("T0960 X", 1);
+        rejectsAt("T090060 X", 1);
+        rejectsAt("T1 X", 1);
+        rejectsAt("T090 X", 1);
+        rejectsAt("T0900:0900,X", 6);
+        rejectsAt("T090000.5 X", 7);
+        rejectsAt("20230229 X", 0);
+        rejectsAt("00000101 X", 0);
+        rejectsAt("20200101T2400 X", 0);
+        rejectsAt("20200101T0060 X", 0);
+        rejectsAt("20200101T000060 X", 0);
+        rejectsAt("2020010 X", 0);
+        rejectsAt("20200101T09 X", 0);
+        rejectsAt("20200101/0D X", 9);
+        rejectsAt("20200101/0D/1H", 9);      // the period, before the duration it cannot hold
+        rejectsAt("20200101/2D/0D X", 12);
+        rejectsAt("20200101/2D/3D X", 12);
+        rejectsAt("20200101/2D/1M X", 12);
+        rejectsAt("20200101/2147483648D X", 9);
+        rejectsAt("20180301:20170301 X", 9);
+        rejectsAt("20200101 20200102 X", 9);
+        rejectsAt("20200101 *:20200102 X", 9);
+        rejectsAt("20200101/2D 20200101/2D X", 12);
+        rejectsAt("M1 M2 X", 3);
+        // D's domain waits for its scope: a grammar error first wins, a complete branch competes
+        rejectsAt("D40 M3/1", 1);
+        rejectsAt("D40 20230229", 1);
+        rejectsAt("D2/40 X", 6);
+        rejectsAt("D2/40 M1", 3);
+        rejectsAt("D-40 M3/1", 1);
+        rejectsAt("D1:40 Q1 M13", 3);
+        rejectsAt("D0 X", 3);              // even where no scope could hold the value
+        rejectsAt("D-0 X", 1);             // '-0' is no value in any domain, so it does not wait
+        rejectsAt("D40 M*5", 1);           // the '*' completes M, and the 5 is a malformed date literal
+        rejectsAt("D0", 1);
         rejectsMsg("D-32", "negative value out of domain");
         rejectsMsg("D40", "day out of domain (1-31)");
     }

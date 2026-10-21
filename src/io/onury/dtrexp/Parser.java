@@ -31,6 +31,10 @@ final class Parser {
     // position: D's domain depends on a scope known only once the branch is read
     private final List<long[]> dayValues = new ArrayList<>();
     private int dayIntervalPos;
+    // the earliest rule error the branch has found: a rule error does not
+    // stop the branch, which reads on and ends with its earliest error, a
+    // later grammar error included (spec section 8)
+    private DTRExpParseException pending;
 
     private Parser(String src) {
         this.src = src;
@@ -48,9 +52,6 @@ final class Parser {
     // ------------------------------------------------------------------ top
 
     private void parseAll() {
-        if (src.isBlank()) {
-            throw err(0, "empty expression");
-        }
         while (true) {
             parseExpression(!exprs.isEmpty());
             skipSpaces();
@@ -79,25 +80,25 @@ final class Parser {
                 DateComponent dc = parseDateComponent();
                 if (dc.cadence != null) {
                     if (cadence != null) {
-                        throw err(pos, "more than one cadence per expression");
+                        rule(pos, "more than one cadence per expression");
                     }
                     cadence = dc.cadence;
                 } else {
                     if (bounds != null) {
-                        throw err(pos, "more than one bounds component per expression");
+                        rule(pos, "more than one bounds component per expression");
                     }
                     bounds = dc.bounds;
                 }
             } else if (c == '*') {
                 if (bounds != null) {
-                    throw err(pos, "more than one bounds component per expression");
+                    rule(pos, "more than one bounds component per expression");
                 }
                 bounds = parseOpenStartBounds();
             } else if (DESIGNATORS.indexOf(c) >= 0) {
                 Ast.Selector s = c == 'T' ? parseTimeSelector() : parseSelector();
                 for (Ast.Selector prev : sels) {
                     if (prev.des == s.des) {
-                        throw err(pos, "duplicate designator '" + s.des + "' in one expression");
+                        rule(pos, "duplicate designator '" + s.des + "' in one expression");
                     }
                 }
                 sels.add(s);
@@ -109,7 +110,11 @@ final class Parser {
             throw err(exprStart, unionBranch ? "empty union branch" : "empty expression");
         }
         Ast.Expr expr = new Ast.Expr(sels, cadence, bounds);
+        // the branch is complete: D's domain is known now, and the earliest error wins
         validateDayScope(expr);
+        if (pending != null) {
+            throw pending;
+        }
         StaticChecks.check(expr, warnings);
         exprs.add(expr);
     }
@@ -130,7 +135,7 @@ final class Parser {
         if (c == '*' && !(i + 1 < src.length() && src.charAt(i + 1) == ':')) {
             i++;
             if (peek() == '/') {
-                throw err(i, "anchorless stride — explicit start required");
+                return parseStride(des, pos, Ast.Item.single(Ast.STAR, 0));
             }
             if (peek() == ',') {
                 throw err(i, "bare '*' in a list — the list is already the whole domain");
@@ -203,7 +208,7 @@ final class Parser {
         boolean literalBoth = !starStart && !starEnd && start >= 0 && end >= 0;
         boolean wrap = literalBoth && start > end;
         if (des == 'Y' && wrap) {
-            throw err(endPos, "backwards year range — years are absolute and non-cyclic, no wrap");
+            rule(endPos, "backwards year range — years are absolute and non-cyclic, no wrap");
         }
         return Ast.Item.of(start, end, wrap);
     }
@@ -216,37 +221,41 @@ final class Parser {
             i++;
         }
         if (digitRun(i) == 0) {
-            throw err(pos, "expected a value for '" + des + "'");
+            // the integer is required past the sign, where it is missing
+            throw err(i, "expected a value for '" + des + "'");
         }
         long v = readInteger(pos);
         if (des == 'Y') {
             if (neg) {
-                throw err(pos, "negative value on Y — no edge to count back from");
-            }
-            if (v < 1 || v > 9999) {
-                throw err(pos, "year out of domain — Y takes 4-digit ISO years (1-9999)");
+                rule(pos, "negative value on Y — no edge to count back from");
+            } else if (v < 1 || v > 9999) {
+                rule(pos, "year out of domain — Y takes 4-digit ISO years (1-9999)");
             }
             return v;
         }
-        int min = domainMin(des);
-        if (v == 0 && min == 1) {
-            throw err(pos, "zero value on a 1-based domain");
-        }
         if (des == 'D') {
             // domain depends on scope; checked in validateDayScope after the
-            // whole expression is read (components may appear in any order)
+            // whole expression is read (components may appear in any order),
+            // but '-0' is no value in any domain
+            if (neg && v == 0) {
+                rule(pos, "zero value on a 1-based domain");
+            }
             long day = neg ? -v : v;
             dayValues.add(new long[] {pos, day});
             return day;
         }
+        int min = domainMin(des);
+        if (v == 0 && min == 1) {
+            rule(pos, "zero value on a 1-based domain");
+        }
         if (neg) {
             if (v == 0 || v > domainSize(des)) {
-                throw err(pos, "negative value out of domain (-" + domainSize(des) + "..-1)");
+                rule(pos, "negative value out of domain (-" + domainSize(des) + "..-1)");
             }
             return -v;
         }
         if (v > domainMax(des)) {
-            throw err(pos, "value out of domain (" + min + "-" + domainMax(des) + ")");
+            rule(pos, "value out of domain (" + min + "-" + domainMax(des) + ")");
         }
         return v;
     }
@@ -266,14 +275,14 @@ final class Parser {
             i++;
         }
         if (digitRun(i) == 0) {
-            throw err(countPos, "expected an ordinal after '#'");
+            throw err(i, "expected an ordinal after '#'");
         }
         long n = readInteger(countPos);
         if (n == 0) {
-            throw err(countPos, "ordinal zero");
+            rule(countPos, "ordinal zero");
         }
         if (n > 5) {
-            throw err(countPos, "ordinal out of range (-5..-1, 1..5)");
+            rule(countPos, "ordinal out of range (-5..-1, 1..5)");
         }
         if (peek() == ',') {
             throw err(i, "ordinal is single — union more via '|'");
@@ -283,15 +292,14 @@ final class Parser {
 
     private Ast.Selector parseStride(char des, int pos, Ast.Item first) {
         int slashPos = i;
-        if (first.wrap) {
-            throw err(slashPos, "wrap ranges take no stride");
-        }
         long start = first.start;
-        if (start == Ast.STAR) {
-            throw err(slashPos, "anchorless stride — explicit start required");
-        }
-        if (start < 0) {
-            throw err(slashPos, "stride start must be non-negative (end-relative anchors shift per parent instance)");
+        // a stride its range or start does not allow is an error at the '/'
+        if (first.wrap) {
+            rule(slashPos, "wrap ranges take no stride");
+        } else if (start == Ast.STAR) {
+            rule(slashPos, "anchorless stride — explicit start required");
+        } else if (start < 0) {
+            rule(slashPos, "stride start must be non-negative (end-relative anchors shift per parent instance)");
         }
         i++; // '/'
         int intervalPos = i;
@@ -303,13 +311,13 @@ final class Parser {
             duration = parseUint("stride duration");
         }
         if (interval < 2) {
-            throw err(intervalPos, "stride interval must be >= 2");
+            rule(intervalPos, "stride interval must be >= 2");
         }
         if (des != 'Y' && des != 'D' && interval > domainSize(des)) {
-            throw err(intervalPos, "stride interval exceeds parent domain — use a cadence");
+            rule(intervalPos, "stride interval exceeds parent domain — use a cadence");
         }
         if (duration < 1 || duration >= interval) {
-            throw err(durationPos, "stride duration must be 1 <= duration < interval");
+            rule(durationPos, "stride duration must be 1 <= duration < interval");
         }
         dayIntervalPos = intervalPos;
         long end = first.range ? first.end : Ast.STAR; // default: domain edge
@@ -338,7 +346,7 @@ final class Parser {
                 int endPos = i;
                 long[] b = parseTimeval(true);
                 if (a[0] == b[0]) {
-                    throw err(endPos, "T range with equal endpoints — half-open, would cover nothing");
+                    rule(endPos, "T range with equal endpoints — half-open, would cover nothing");
                 }
                 items.add(Ast.Item.of(a[0], b[0], a[0] > b[0]));
             } else {
@@ -358,19 +366,17 @@ final class Parser {
         return Ast.Selector.list('T', pos, items);
     }
 
-    /** Returns {msOfDay, unitMs}. Greedy: takes 6 digits if available, else 4, else 2. */
+    /** Returns {msOfDay, unitMs}. The value is the whole digit run: 2, 4 or 6 digits. */
     private long[] parseTimeval(boolean endPosition) {
         int pos = i;
-        int run = digitRun(i);
-        int take;
-        if (run >= 6) {
-            take = 6;
-        } else if (run >= 4) {
-            take = 4;
-        } else if (run >= 2) {
-            take = 2;
-        } else {
+        int take = digitRun(i);
+        if (take == 0) {
             throw err(pos, "expected a time value");
+        }
+        if (take != 2 && take != 4 && take != 6) {
+            rule(pos, "a time value is hh, hhmm or hhmmss");
+            i = pos + take;
+            return new long[] {0, 1_000L};
         }
         int hh = twoDigits(pos);
         int mm = take >= 4 ? twoDigits(pos + 2) : 0;
@@ -380,15 +386,16 @@ final class Parser {
         long unit;
         boolean hasMillis = take == 6 && peek() == '.';
         if (hasMillis) {
+            // the fraction is its own token, from its '.'
+            int fracPos = i;
             i++;
-            if (digitRun(i) < 3) {
-                throw err(i, "milliseconds are exactly 3 digits");
+            int fraction = digitRun(i);
+            if (fraction == 3) {
+                ms = Long.parseLong(src, i, i + 3, 10);
+            } else {
+                rule(fracPos, "milliseconds are exactly 3 digits");
             }
-            ms = Long.parseLong(src, i, i + 3, 10);
-            if (digitRun(i) > 3) {
-                throw err(i, "milliseconds are exactly 3 digits");
-            }
-            i += 3;
+            i += fraction;
             unit = 1;
         } else {
             unit = take == 2 ? 3_600_000L : take == 4 ? 60_000L : 1_000L;
@@ -398,16 +405,15 @@ final class Parser {
             if (endPosition && take == 4 && mm == 0) {
                 return new long[] {DAY_MS, unit};
             }
-            throw err(pos, "hour 24 is the exact 4-digit token '2400', in range-end position only");
-        }
-        if (hh > 23) {
-            throw err(pos, "hour out of range in time value");
+            rule(pos, "hour 24 is the exact 4-digit token '2400', in range-end position only");
+        } else if (hh > 23) {
+            rule(pos, "hour out of range in time value");
         }
         if (mm > 59) {
-            throw err(pos, "minute out of range in time value");
+            rule(pos, "minute out of range in time value");
         }
         if (ss > 59) {
-            throw err(pos, "second out of range in time value (leap seconds are not representable)");
+            rule(pos, "second out of range in time value (leap seconds are not representable)");
         }
         return new long[] {hh * 3_600_000L + mm * 60_000L + ss * 1_000L + ms, unit};
     }
@@ -438,7 +444,7 @@ final class Parser {
             int endPos = i;
             DateLiteral end = parseDateLiteral();
             if (!lit.begin().isBefore(end.endExcl())) {
-                throw err(endPos, "backwards bounds range — the window is empty");
+                rule(endPos, "backwards bounds range — the window is empty");
             }
             return new DateComponent(null, new Ast.Bounds(pos, lit.begin(), end.endExcl()));
         }
@@ -469,49 +475,53 @@ final class Parser {
      */
     private DateLiteral parseDateLiteral() {
         int pos = i;
-        if (digitRun(i) != 8) {
-            throw err(pos, "expected an 8-digit date literal (YYYYMMDD)");
+        int run = digitRun(i);
+        i = pos + run;
+        // a literal the rules do not allow is noted and read past, its digit
+        // runs and T part whole, so the branch reads on; every error in the
+        // literal, its time part included, is positioned at its first character
+        LocalDate date = LocalDate.of(1, 1, 1);
+        if (run != 8) {
+            rule(pos, "expected an 8-digit date literal (YYYYMMDD)");
+        } else {
+            int year = Integer.parseInt(src, pos, pos + 4, 10);
+            try {
+                date = LocalDate.of(year, twoDigits(pos + 4), twoDigits(pos + 6));
+            } catch (DateTimeException e) {
+                rule(pos, "not a real calendar date: " + src.substring(pos, pos + 8));
+            }
+            if (year < 1) {
+                rule(pos, "year out of domain (1-9999)");
+            }
         }
-        int year = Integer.parseInt(src, pos, pos + 4, 10);
-        int month = twoDigits(pos + 4);
-        int day = twoDigits(pos + 6);
-        LocalDate date;
-        try {
-            date = LocalDate.of(year, month, day);
-        } catch (DateTimeException e) {
-            throw err(pos, "not a real calendar date: " + src.substring(pos, pos + 8));
-        }
-        if (year < 1) {
-            throw err(pos, "year out of domain (1-9999)");
-        }
-        i = pos + 8;
         if (peek() != 'T') {
             LocalDateTime begin = date.atStartOfDay();
             return new DateLiteral(begin, begin.plusDays(1));
         }
         i++; // 'T'
         int tPos = i;
-        int run = digitRun(i);
-        int take = run >= 6 ? 6 : run >= 4 ? 4 : -1;
-        // every error in the literal, its time part included, is positioned
-        // at the literal's first character
-        if (take < 0) {
-            throw err(pos, "malformed time-part in date literal (Thhmm[ss])");
+        int take = digitRun(i);
+        i = tPos + take;
+        // a further digit makes the time part malformed, never the start of
+        // another literal
+        if (take != 4 && take != 6) {
+            rule(pos, "malformed time-part in date literal (Thhmm[ss])");
+            LocalDateTime begin = date.atStartOfDay();
+            return new DateLiteral(begin, begin.plusMinutes(1));
         }
         int hh = twoDigits(tPos);
         int mm = twoDigits(tPos + 2);
         int ss = take == 6 ? twoDigits(tPos + 4) : 0;
         if (hh > 23) {
-            throw err(pos, "hour out of range in date literal");
+            rule(pos, "hour out of range in date literal");
         }
         if (mm > 59) {
-            throw err(pos, "minute out of range in date literal");
+            rule(pos, "minute out of range in date literal");
         }
         if (ss > 59) {
-            throw err(pos, "second out of range in date literal");
+            rule(pos, "second out of range in date literal");
         }
-        i = tPos + take;
-        LocalDateTime begin = date.atTime(hh, mm, ss);
+        LocalDateTime begin = date.atTime(Math.min(hh, 23), Math.min(mm, 59), Math.min(ss, 59));
         return new DateLiteral(begin, take == 4 ? begin.plusMinutes(1) : begin.plusSeconds(1));
     }
 
@@ -535,22 +545,22 @@ final class Parser {
             durUnit = periodUnit;
         }
         if (periodN == 0) {
-            throw err(periodPos, "zero cadence period");
+            rule(periodPos, "zero cadence period");
         }
         if (durN == 0) {
-            throw err(durPos, "zero cadence duration");
+            rule(durPos, "zero cadence duration");
         }
         boolean durMonthly = durUnit == 'M' || durUnit == 'Y';
         boolean periodMonthly = periodUnit == 'M' || periodUnit == 'Y';
         if (durMonthly && !periodMonthly) {
-            throw err(durPos, "month/year duration unit requires a month/year period");
+            rule(durPos, "month/year duration unit requires a month/year period");
         }
         // conservative fixed-length check (spec section 5.2), in minutes
         // Same-unit comparisons are exact (spec §5.2); across units, conservative.
         long durMax = durUnit == periodUnit ? durN : (long) durN * maxMinutes(durUnit);
         long perMin = durUnit == periodUnit ? periodN : (long) periodN * minMinutes(periodUnit);
         if (durMax >= perMin) {
-            throw err(durPos, "cadence duration must be conservatively smaller than the period");
+            rule(durPos, "cadence duration must be conservatively smaller than the period");
         }
         return new Ast.Cadence(pos, anchor, periodN, periodUnit, durN, durUnit);
     }
@@ -600,16 +610,19 @@ final class Parser {
             checkDayValue((int) value[0], value[1], max);
         }
         if (d.stride && d.interval > max) {
-            throw err(dayIntervalPos, "stride interval exceeds parent domain — use a cadence");
+            rule(dayIntervalPos, "stride interval exceeds parent domain — use a cadence");
         }
     }
 
     private void checkDayValue(int pos, long v, int max) {
+        if (v == 0) {
+            rule(pos, "zero value on a 1-based domain");
+        }
         if (v > max) {
-            throw err(pos, "day out of domain (1-" + max + ")");
+            rule(pos, "day out of domain (1-" + max + ")");
         }
         if (v < 0 && -v > max) {
-            throw err(pos, "negative value out of domain — symmetric parse-time check (-" + max + "..-1)");
+            rule(pos, "negative value out of domain — symmetric parse-time check (-" + max + "..-1)");
         }
     }
 
@@ -652,13 +665,13 @@ final class Parser {
     private int readInteger(int pos) {
         long v = 0;
         while (i < src.length() && isDigit(src.charAt(i))) {
-            v = v * 10 + (src.charAt(i) - '0');
-            if (v > Integer.MAX_VALUE) {
-                throw err(pos, "integer above " + Integer.MAX_VALUE);
-            }
+            v = Math.min(v * 10 + (src.charAt(i) - '0'), Integer.MAX_VALUE + 1L);
             i++;
         }
-        return (int) v;
+        if (v > Integer.MAX_VALUE) {
+            rule(pos, "integer above " + Integer.MAX_VALUE);
+        }
+        return (int) Math.min(v, Integer.MAX_VALUE);
     }
 
     private int twoDigits(int at) {
@@ -687,7 +700,16 @@ final class Parser {
         return c >= '0' && c <= '9';
     }
 
+    /** A grammar error: the branch ends with it, or with an earlier rule error. */
     private DTRExpParseException err(int pos, String message) {
-        return new DTRExpParseException(pos, message);
+        rule(pos, message);
+        return pending;
+    }
+
+    /** Notes a rule error; the branch reads on, and its earliest error wins. */
+    private void rule(int pos, String message) {
+        if (pending == null || pos < pending.position()) {
+            pending = new DTRExpParseException(pos, message);
+        }
     }
 }
