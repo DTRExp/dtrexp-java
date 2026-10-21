@@ -184,7 +184,9 @@ final class Parser {
         if (peek() == '*') {
             i++;
             if (peek() != ':') {
-                throw err(i - 1, "bare '*' in a list — the list is already the whole domain");
+                // a rule error at the '*': the branch reads on as if it were '*:*', so a waiting D check still competes
+                rule(i - 1, "bare '*' in a list — the list is already the whole domain");
+                return Ast.Item.of(Ast.STAR, Ast.STAR, false);
             }
             start = Ast.STAR;
             starStart = true;

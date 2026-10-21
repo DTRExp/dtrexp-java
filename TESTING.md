@@ -24,7 +24,7 @@ Two environment notes, learned the hard way: PIT's CSV listener genuinely requir
 
 ## Mutation Testing
 
-Full run (2026-10-21, draft 3: error positions, the integer limit, zone names, the earliest error winning; rerun after the duplicate check became linear and a misplaced fraction a rule error): **690 mutants: 680 caught (one as a memory error, a mutant that never ends the digit run), 10 equivalent, 0 unjustified survivors.** Ten of the equivalents are still in the code and justified below; the eleventh went with the date-literal code it sat in.
+Full run (2026-10-21, draft 3: error positions, the integer limit, zone names, the earliest error winning; rerun after the duplicate check became linear and a misplaced fraction a rule error): **692 mutants: 681 caught (one as a memory error, a mutant that never ends the digit run), 11 equivalent, 0 unjustified survivors**, after a bare `*` in a list became a rule error. Ten of the equivalents are still in the code and justified below; the eleventh went with the date-literal code it sat in.
 
 `Parser` rerun on its own (2026-10-21, after the parser began reading on past a rule error so that the earliest error wins, a later grammar error included, with only D's domain waiting for the branch): **371 mutants: 367 caught, 4 survivors, the four `Parser` equivalents below.** Two more survived a first pass and were killed by new tests: a zero cadence period with a written duration (`20200101/0D/1H`), and the value an integer above the limit reads as, now the limit itself on the one return.
 
@@ -32,12 +32,13 @@ Seven of the caught are non-termination kills: mutants that turn bounded loops i
 
 Every other mutant changes observable behavior and is killed by a test. The survivors below are behaviorally equivalent to the original; each carries its proof, because "no test could distinguish it" is a claim that has to be earned per mutant.
 
-### Justified Equivalent Survivors (10)
+### Justified Equivalent Survivors (11)
 
 PIT has no inline suppression mechanism, so equivalents are documented here.
 
 | Mutant | Site | Why Equivalent |
 | --- | --- | --- |
+| NullReturnVals `Parser.java:189` | `parseIntItem` returns the `*:*` stand-in for a bare `*` in a list → `null` | The stand-in is built only after the bare `*` is recorded as a rule error, so the branch already holds an error, which is thrown at the branch's end before any of its items is read; checked by hand on `D1,*`, `D1,* M2`, `D1,*/2`, `D!1,*` and `E1,* D5`, which answer the same with either value. |
 | PrimitiveReturns `Ast.java:165` | `scopeOfDay` `return 'M'` → `0` | Every consumer switches on the result with cases only for `'Q'`/`'Y'` and month behavior as `default`; `0` takes `default` exactly as `'M'` does. |
 | PrimitiveReturns `Ast.java:173` | the fallback `return 'M'` → `0` | Same switch argument. |
 | ConditionalsBoundary `Evaluator.java:220` | `ordN > 0` → `>=` | Ordinal zero is a parse error ("ordinal zero"); the operators differ only at 0. |
