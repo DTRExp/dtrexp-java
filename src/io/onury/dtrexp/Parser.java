@@ -67,6 +67,7 @@ final class Parser {
         skipSpaces();
         int exprStart = i;
         List<Ast.Selector> sels = new ArrayList<>();
+        boolean[] seen = new boolean[128]; // designators so far: a duplicate check per selector, not per pair
         Ast.Cadence cadence = null;
         Ast.Bounds bounds = null;
         while (true) {
@@ -96,11 +97,10 @@ final class Parser {
                 bounds = parseOpenStartBounds();
             } else if (DESIGNATORS.indexOf(c) >= 0) {
                 Ast.Selector s = c == 'T' ? parseTimeSelector() : parseSelector();
-                for (Ast.Selector prev : sels) {
-                    if (prev.des == s.des) {
-                        rule(pos, "duplicate designator '" + s.des + "' in one expression");
-                    }
+                if (seen[s.des]) {
+                    rule(pos, "duplicate designator '" + s.des + "' in one expression");
                 }
+                seen[s.des] = true;
                 sels.add(s);
             } else {
                 throw err(pos, "unexpected character '" + c + "'");
@@ -384,13 +384,14 @@ final class Parser {
         i = pos + take;
         long ms = 0;
         long unit;
-        boolean hasMillis = take == 6 && peek() == '.';
-        if (hasMillis) {
-            // the fraction is its own token, from its '.'
+        if (peek() == '.') {
+            // the fraction is its own token, from its '.'; one in the wrong place is a rule error there
             int fracPos = i;
             i++;
             int fraction = digitRun(i);
-            if (fraction == 3) {
+            if (take != 6) {
+                rule(fracPos, "milliseconds follow only a 6-digit hhmmss time value");
+            } else if (fraction == 3) {
                 ms = Long.parseLong(src, i, i + 3, 10);
             } else {
                 rule(fracPos, "milliseconds are exactly 3 digits");
