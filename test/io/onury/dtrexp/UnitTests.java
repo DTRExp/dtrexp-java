@@ -395,6 +395,10 @@ public final class UnitTests {
         rejects("20200101/0D");            // zero cadence period
         rejects("20200101/2D/0H");         // zero cadence duration
         rejects("20200101/2D/1M");         // month duration needs month/year period
+        accepts("20200101/14M/1Y");        // a year (at most 366 d) fits 14 months (at least 392 d)
+        rejects("20200101/13M/1Y");        // ...but not 13 (at least 364 d): across units, conservative
+        accepts("20200101/11M/10M");       // same unit: exact (spec §5.2)
+        rejects("20200101/10M/10M");       // same unit: duration must be smaller
         rejects("20200101/2");             // unknown cadence unit at end of input
         rejects("20200101/2X");            // unknown cadence unit
         rejects("20200101//2D");           // missing cadence period

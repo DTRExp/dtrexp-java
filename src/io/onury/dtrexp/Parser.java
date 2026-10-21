@@ -546,8 +546,9 @@ final class Parser {
             throw err(durPos, "month/year duration unit requires a month/year period");
         }
         // conservative fixed-length check (spec section 5.2), in minutes
-        long durMax = (long) durN * maxMinutes(durUnit);
-        long perMin = (long) periodN * minMinutes(periodUnit);
+        // Same-unit comparisons are exact (spec §5.2); across units, conservative.
+        long durMax = durUnit == periodUnit ? durN : (long) durN * maxMinutes(durUnit);
+        long perMin = durUnit == periodUnit ? periodN : (long) periodN * minMinutes(periodUnit);
         if (durMax >= perMin) {
             throw err(durPos, "cadence duration must be conservatively smaller than the period");
         }
